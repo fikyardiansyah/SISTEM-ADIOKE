@@ -1,25 +1,44 @@
 import { createContext } from "react";
+import type { Layanan } from "../data/layanan";
 
 export type LoketStatus = "buka" | "tutup";
+export type StatusTiket = "menunggu" | "dilayani";
+
+export interface AntrianEvent {
+  id: string; // id unik per tiket, dipakai untuk hapus/detail
+  loketId: string;
+  nomorTiket: string; // contoh: E001, K002, dst
+  timestamp: number; // Date.now() saat tiket diambil
+  status: StatusTiket;
+}
+
+// Data yang diisi admin lewat form "Tambah Layanan Loket". id dibuat
+// otomatis dari nama (slug), jadi tidak perlu diisi manual.
+export type TambahLoketInput = Omit<Layanan, "id">;
 
 export interface QueueContextType {
-  /** Jumlah tiket yang sudah diambil warga per loket */
+  /** Daftar semua loket — sekarang dinamis (bisa nambah lewat tambahLoket) */
+  layananList: Layanan[];
   counts: Record<string, number>;
-  /** Nomor antrian yang sedang dipanggil/dilayani admin per loket */
   currentServing: Record<string, number>;
-  /** Status buka/tutup tiap loket */
   loketStatus: Record<string, LoketStatus>;
+  /** Setiap kali warga ambil tiket, dicatat di sini — dasar grafik & riwayat harian/mingguan/bulanan */
+  riwayatAntrian: AntrianEvent[];
+  /** Daftar kategori loket yang admin kelola */
+  kategoriList: string[];
 
-  /** Warga mengambil nomor antrian baru */
   ambilAntrian: (id: string) => void;
-  /** Admin memanggil nomor antrian berikutnya (+ akan memicu suara di halaman admin) */
   panggilSelanjutnya: (id: string) => void;
-  /** Admin menutup loket */
   tutupLoket: (id: string) => void;
-  /** Admin membuka kembali loket */
   bukaLoket: (id: string) => void;
-  /** Reset semua antrian (counts & currentServing) ke 0, loket dibuka semua */
   resetSemuaAntrian: () => void;
+  tambahKategori: (nama: string) => void;
+  /** Hapus satu tiket dari riwayat berdasarkan id-nya */
+  hapusAntrian: (eventId: string) => void;
+  /** Hapus seluruh tiket dalam satu hari (arsip), startOfDayTs = timestamp awal hari (00:00) */
+  hapusRiwayatHari: (startOfDayTs: number) => void;
+  /** Admin menambah loket baru lewat form Tambah Layanan Loket */
+  tambahLoket: (data: TambahLoketInput) => void;
 }
 
 export const QueueContext = createContext<QueueContextType | null>(null);

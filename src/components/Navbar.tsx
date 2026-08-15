@@ -1,37 +1,37 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import LoginModal from "./LoginModal";
-import { useQueue } from "../context/useQueue";
 
 const ADMIN_STORAGE_KEY = "adioke_admin_user";
 
+// Navbar ini dipakai di SEMUA halaman publik, TERMASUK Portal admin
+// ("/admin/portal") — tampilannya harus identik dengan guest yang belum
+// login. Satu-satunya perbedaan: kalau admin sedang login, tombol
+// "Sign In" diganti dropdown profil (Dashboard, Display, Logout).
+//
+// Tombol "Sign In" mengarahkan ke halaman penuh /login (LoginPage) —
+// bukan modal — supaya tampilan login konsisten dengan branding Adi Oke
+// (split-screen, bukan popup kecil).
+//
+// Untuk halaman panel admin lain (Dashboard, Kelola Loket, Kelola Akun),
+// Navbar ini TIDAK dipakai — App.tsx menyembunyikannya dan memakai header
+// bawaan AdminLayout (sidebar).
 export default function Navbar() {
   const navigate = useNavigate();
-  const { resetSemuaAntrian } = useQueue();
 
-  const [showLogin, setShowLogin] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [adminUser, setAdminUser] = useState<string | null>(() =>
-    localStorage.getItem(ADMIN_STORAGE_KEY)
-  );
 
-  const handleLoginSuccess = (username: string) => {
-    localStorage.setItem(ADMIN_STORAGE_KEY, username);
-    setAdminUser(username);
-    setShowLogin(false);
-  };
+  // Dibaca langsung saat render (bukan lewat useState + useEffect) supaya
+  // tidak memicu "setState synchronously within an effect" di React 19.
+  // Navbar dirender di luar <Routes>, tapi App.tsx sudah memakai
+  // useLocation() sehingga App ikut re-render tiap pindah halaman — Navbar
+  // sebagai child-nya otomatis ikut re-render juga, jadi nilai ini selalu
+  // sinkron tanpa perlu effect tambahan.
+  const adminUser = localStorage.getItem(ADMIN_STORAGE_KEY);
 
   const handleLogout = () => {
     localStorage.removeItem(ADMIN_STORAGE_KEY);
-    setAdminUser(null);
     setShowProfileMenu(false);
     navigate("/");
-  };
-
-  const handleResetSemuaAntrian = () => {
-    if (confirm("Reset semua antrian? Semua nomor akan kembali ke 0.")) {
-      resetSemuaAntrian();
-    }
   };
 
   return (
@@ -43,16 +43,6 @@ export default function Navbar() {
             <p>KECAMATAN KUTA SELATAN</p>
             <p>KABUPATEN BADUNG</p>
           </div>
-
-          {adminUser && (
-            <button
-              type="button"
-              onClick={handleResetSemuaAntrian}
-              className="ml-6 text-sm font-medium text-gray-700 underline hover:text-blue-700"
-            >
-              Reset Semua Antrian
-            </button>
-          )}
         </div>
 
         {adminUser ? (
@@ -60,10 +50,23 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setShowProfileMenu((v) => !v)}
-              className="flex items-center gap-2 text-sm font-medium text-gray-700"
+              className="flex items-center gap-3"
             >
-              Halo, <span className="font-bold">{adminUser}</span>
-              <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current" fill="none" strokeWidth={2}>
+              <div className="text-right text-sm">
+                <p className="font-semibold text-gray-800">
+                  Halo, <span className="font-bold">{adminUser}</span>
+                </p>
+                <p className="text-xs text-gray-500">Super Administrator</p>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-800 text-white">
+                👤
+              </div>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 stroke-current text-gray-500"
+                fill="none"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -99,13 +102,12 @@ export default function Navbar() {
             )}
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setShowLogin(true)}
+          <Link
+            to="/login"
             className="rounded-full bg-blue-800 px-5 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-900"
           >
             Sign In
-          </button>
+          </Link>
         )}
       </div>
 
@@ -113,10 +115,6 @@ export default function Navbar() {
         <img src="/images/logo-adioke.png" alt="Adi Oke" className="h-24" />
         <p className="mt-2 text-sm">Antrean Digital Online Kuta Selatan</p>
       </div>
-
-      {showLogin && (
-        <LoginModal onClose={() => setShowLogin(false)} onSuccess={handleLoginSuccess} />
-      )}
     </header>
   );
 }

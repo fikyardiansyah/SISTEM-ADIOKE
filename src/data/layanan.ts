@@ -30,3 +30,15 @@ export const layananLainnya: LayananLainnya[] = [
   { nama: "Survey Kepuasan Masyarakat", icon: "/images/icon-survey.png", variant: "merah", link: "/survey" },
   { nama: "GADIS MANIS", deskripsi: "Gerai Pengaduan dan Konsultasi Masalah Silsilah dan Waris", icon: "/images/icon-gadis-manis.png", variant: "merah", link: "/gadis-manis" },
 ];
+
+export interface Layanan {
+  id: string;
+  nama: string;
+  namaLoket: string;
+  prefix: string;
+  jumlahAntrianAwal: number;
+  icon: string;
+  kategori?: string; // baru
+  deskripsi?: string;
+  variant: "biru" | "merah";
+}

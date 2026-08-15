@@ -1,24 +1,31 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { layananList, layananLainnya } from "../data/layanan";
 import { useQueue } from "../context/useQueue";
 
 const ADMIN_STORAGE_KEY = "adioke_admin_user";
 
+// Halaman ini KHUSUS warga (ambil tiket antrian). Kalau admin sedang login
+// dan membuka "/", langsung dilempar ke Portal admin supaya tidak salah
+// ambil tiket. Portal admin ada di AdminPortalPage ("/admin/portal").
 export default function HomePage() {
   const navigate = useNavigate();
   const { counts, ambilAntrian } = useQueue();
   const isAdmin = Boolean(localStorage.getItem(ADMIN_STORAGE_KEY));
 
-  const handlePilihLayanan = (id: string) => {
+  useEffect(() => {
     if (isAdmin) {
-      // Admin masuk ke panel panggil nomor antrian loket
-      navigate(`/admin/loket/${id}`);
-    } else {
-      // Warga mengambil nomor antrian baru lalu cetak tiket
-      ambilAntrian(id);
-      navigate(`/antrian/${id}`);
+      navigate("/admin/portal", { replace: true });
     }
+  }, [isAdmin, navigate]);
+
+  const handlePilihLayanan = (id: string) => {
+    // Warga mengambil nomor antrian baru lalu cetak tiket
+    ambilAntrian(id);
+    navigate(`/antrian/${id}`);
   };
+
+  if (isAdmin) return null; // sedang di-redirect, hindari render sekilas HomePage warga
 
   return (
     <main className="max-w-10xl mx-auto px-4 py-10">
