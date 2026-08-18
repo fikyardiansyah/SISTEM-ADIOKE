@@ -1,35 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-const ADMIN_STORAGE_KEY = "adioke_admin_user";
+import { getAdminSession, clearAdminSession } from "../lib/auth";
 
 // Navbar ini dipakai di SEMUA halaman publik, TERMASUK Portal admin
 // ("/admin/portal") — tampilannya harus identik dengan guest yang belum
 // login. Satu-satunya perbedaan: kalau admin sedang login, tombol
 // "Sign In" diganti dropdown profil (Dashboard, Display, Logout).
-//
-// Tombol "Sign In" mengarahkan ke halaman penuh /login (LoginPage) —
-// bukan modal — supaya tampilan login konsisten dengan branding Adi Oke
-// (split-screen, bukan popup kecil).
-//
-// Untuk halaman panel admin lain (Dashboard, Kelola Loket, Kelola Akun),
-// Navbar ini TIDAK dipakai — App.tsx menyembunyikannya dan memakai header
-// bawaan AdminLayout (sidebar).
 export default function Navbar() {
   const navigate = useNavigate();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // Dibaca langsung saat render (bukan lewat useState + useEffect) supaya
-  // tidak memicu "setState synchronously within an effect" di React 19.
-  // Navbar dirender di luar <Routes>, tapi App.tsx sudah memakai
-  // useLocation() sehingga App ikut re-render tiap pindah halaman — Navbar
-  // sebagai child-nya otomatis ikut re-render juga, jadi nilai ini selalu
-  // sinkron tanpa perlu effect tambahan.
-  const adminUser = localStorage.getItem(ADMIN_STORAGE_KEY);
+  // Dibaca langsung saat render (bukan useState+useEffect) — App.tsx pakai
+  // useLocation() jadi ikut re-render tiap pindah halaman, Navbar sebagai
+  // child-nya otomatis ikut, nilainya selalu sinkron.
+  const session = getAdminSession();
 
   const handleLogout = () => {
-    localStorage.removeItem(ADMIN_STORAGE_KEY);
+    clearAdminSession();
     setShowProfileMenu(false);
     navigate("/");
   };
@@ -45,7 +33,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {adminUser ? (
+        {session ? (
           <div className="relative">
             <button
               type="button"
@@ -54,9 +42,9 @@ export default function Navbar() {
             >
               <div className="text-right text-sm">
                 <p className="font-semibold text-gray-800">
-                  Halo, <span className="font-bold">{adminUser}</span>
+                  Halo, <span className="font-bold">{session.user.nama}</span>
                 </p>
-                <p className="text-xs text-gray-500">Super Administrator</p>
+                <p className="text-xs text-gray-500">{session.user.peran}</p>
               </div>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-800 text-white">
                 👤
@@ -73,7 +61,6 @@ export default function Navbar() {
 
             {showProfileMenu && (
               <>
-                {/* overlay transparan untuk menutup dropdown saat klik di luar */}
                 <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)} />
                 <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border border-gray-100 bg-white py-2 shadow-lg">
                   <Link

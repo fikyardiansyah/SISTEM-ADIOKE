@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
 
 const ITEMS_PER_PAGE = 10;
@@ -7,14 +7,29 @@ const ITEMS_PER_PAGE = 10;
 export default function AdminLoketListPage() {
   const { layananList, counts, currentServing, loketStatus, tutupLoket, bukaLoket } = useQueue();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const kategoriFilter = searchParams.get("kategori") ?? "";
+
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [konfirmasiTutupId, setKonfirmasiTutupId] = useState<string | null>(null);
 
   const filtered = useMemo(
-    () => layananList.filter((l) => l.nama.toLowerCase().includes(search.toLowerCase())),
-    [search]
+    () =>
+      layananList.filter(
+        (l) =>
+          l.nama.toLowerCase().includes(search.toLowerCase()) &&
+          (!kategoriFilter || (l.kategori ?? "Umum") === kategoriFilter)
+      ),
+    [search, kategoriFilter, layananList]
   );
+
+  const hapusFilterKategori = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("kategori");
+    setSearchParams(next);
+    setPage(1);
+  };
 
   const totalPages = Math.max(Math.ceil(filtered.length / ITEMS_PER_PAGE), 1);
   const pageSafe = Math.min(page, totalPages);
@@ -57,6 +72,26 @@ export default function AdminLoketListPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
+        {/* Filter kategori aktif — muncul kalau datang dari "Kelola Layanan" di halaman Kategori */}
+        {kategoriFilter && (
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-sm text-gray-500">Menampilkan kategori:</span>
+            <span className="flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+              {kategoriFilter}
+              <button
+                type="button"
+                onClick={hapusFilterKategori}
+                className="text-blue-400 transition hover:text-blue-700"
+                aria-label="Hapus filter kategori"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </span>
+          </div>
+        )}
+
         {/* Search bar */}
         <div className="mb-4 flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 max-w-sm">
           <svg viewBox="0 0 24 24" className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2}>

@@ -8,34 +8,45 @@ import SurveiKepuasanPage from "./pages/SurveiKepuasanPage";
 import DisplayPage from "./pages/DisplayPage";
 import LoginPage from "./pages/LoginPage";
 import AdminLayout from "./pages/AdminLayout";
+import AdminSurveiPage from "./pages/AdminSurveiPage";
 import AdminPortalPage from "./pages/AdminPortalPage";
 import AdminLoketPage from "./pages/AdminLoketPage";
 import AdminLoketListPage from "./pages/AdminLoketListPage";
+import AdminTambahLoketPage from "./pages/AdminTambahLoketPage";
 import AdminKategoriPage from "./pages/AdminKategoriPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminTambahAkunPage from "./pages/AdminTambahAkunPage";
+import AdminLaporanPage from "./pages/AdminLaporanPage";
+import AdminPengaturanPage from "./pages/AdminPengaturanPage";
+import AdminProfilPage from "./pages/AdminProfilPage";
+import AdminHelpCenterPage from "./pages/AdminHelpCenterPage";
+import LacakAntrianPage from "./pages/LacakAntrianPage";
 
 function App() {
   const location = useLocation();
 
-  // Panel admin (Dashboard, Kelola Layanan Loket, Kelola Akun, Kategori)
-  // punya header+sidebar sendiri di AdminLayout, jadi Navbar/Footer publik
-  // disembunyikan di situ. "/admin/portal" TETAP pakai Navbar publik
-  // karena sengaja dibuat identik dengan HomePage warga.
+  // Panel admin (Dashboard, Layanan Loket, Kategori, Laporan, Pengaturan,
+  // Kelola Akun) punya header+sidebar sendiri di AdminLayout, jadi
+  // Navbar/Footer publik disembunyikan di situ. "/admin/portal" TETAP
+  // pakai Navbar publik karena sengaja dibuat identik dengan HomePage warga.
   const isAdminPanelRoute =
     location.pathname.startsWith("/admin") && location.pathname !== "/admin/portal";
 
-  // "/login" adalah halaman penuh (split-screen) dengan tampilannya
-  // sendiri, jadi Navbar/Footer publik juga disembunyikan di sini.
-  const isBareRoute = isAdminPanelRoute || location.pathname === "/login";
+  // Halaman login penuh (split-screen) punya branding sendiri, jadi Navbar
+  // dan Footer publik disembunyikan di sini juga.
+  const isLoginRoute = location.pathname === "/login";
+
+  const hideNavbarFooter = isAdminPanelRoute || isLoginRoute;
 
   return (
     <>
-      {!isBareRoute && <Navbar />}
+      {!hideNavbarFooter && <Navbar />}
 
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/antrian/:id" element={<QueuePage />} />
+        <Route path="/lacak/:id" element={<LacakAntrianPage />} />
         <Route path="/gadis-manis" element={<GadisManisPage />} />
         <Route path="/survey" element={<SurveiKepuasanPage />} />
         <Route path="/display" element={<DisplayPage />} />
@@ -45,16 +56,23 @@ function App() {
 
         <Route path="/admin" element={<AdminLayout />}>
           <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route path="survei" element={<AdminSurveiPage />} />
           <Route path="loket" element={<AdminLoketListPage />} />
+          <Route path="loket/tambah" element={<AdminTambahLoketPage />} />
           <Route path="loket/:id" element={<AdminLoketPage />} />
           <Route path="kategori" element={<AdminKategoriPage />} />
+          <Route path="laporan" element={<AdminLaporanPage />} />
+          <Route path="pengaturan" element={<AdminPengaturanPage />} />
+          <Route path="profil" element={<AdminProfilPage />} />
+          <Route path="bantuan" element={<AdminHelpCenterPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/tambah" element={<AdminTambahAkunPage />} />
         </Route>
       </Routes>
 
-      {!isBareRoute && <Footer />}
+      {!hideNavbarFooter && <Footer />}
     </>
   );
 }
 
-export default App; 
+export default App;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueue } from "../context/useQueue";
 
 interface RatingQuestion {
   id: number;
@@ -30,6 +31,7 @@ function StarIcon({ filled }: { filled: boolean }) {
 }
 
 export default function SurveiKepuasanPage() {
+  const { submitSurvei } = useQueue();
   const [ratings, setRatings] = useState<Record<number, number>>({});
   const [hovered, setHovered] = useState<Record<number, number>>({});
   const [saran, setSaran] = useState("");
@@ -47,8 +49,7 @@ export default function SurveiKepuasanPage() {
       return;
     }
     setError("");
-    // TODO: kirim data (ratings, saran) ke backend/API jika sudah tersedia
-    console.log("Survei dikirim:", { ratings, saran });
+    submitSurvei(ratings, saran);
     setSubmitted(true);
   };
 

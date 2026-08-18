@@ -1,29 +1,31 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-// Kredensial sementara (hardcode) — ganti/sambungkan ke API auth saat backend sudah tersedia
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
-const ADMIN_STORAGE_KEY = "adioke_admin_user";
+import { loginAdmin } from "../lib/auth";
+import { useQueue } from "../context/useQueue";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { refetchAdminData } = useQueue();
 
-  const [username, setUsername] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ingatSaya, setIngatSaya] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      setError("");
-      localStorage.setItem(ADMIN_STORAGE_KEY, username);
+    setError("");
+    setLoading(true);
+    try {
+      await loginAdmin(usernameOrEmail, password);
+      refetchAdminData();
       navigate("/admin/portal");
-    } else {
-      setError("Username atau password salah.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Username atau password salah.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,13 +34,10 @@ export default function LoginPage() {
       className="relative flex min-h-screen items-center justify-center bg-slate-900 bg-cover bg-center p-4"
       style={{ backgroundImage: "url(/images/kantorcamat.jpg)" }}
     >
-      {/* Overlay gelap tipis supaya kartu login tetap kontras di atas foto */}
       <div className="absolute inset-0 bg-blue-950/60" />
 
       <div className="relative grid w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl md:grid-cols-2">
-        {/* Panel kiri — branding Adi Oke */}
         <div className="relative hidden flex-col justify-between overflow-hidden bg-blue-900 p-10 text-white md:flex">
-          {/* Dekorasi lingkaran, senada dengan hero di Navbar */}
           <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-blue-800/60" />
           <div className="pointer-events-none absolute -bottom-24 -right-10 h-72 w-72 rounded-full bg-blue-700/40" />
           <div className="pointer-events-none absolute right-10 top-1/3 h-40 w-40 rounded-full border border-white/10" />
@@ -68,7 +67,6 @@ export default function LoginPage() {
           <p className="relative text-xs text-blue-200">© 2023 Kecamatan Kuta Selatan</p>
         </div>
 
-        {/* Panel kanan — form login */}
         <div className="flex flex-col justify-center px-6 py-10 sm:px-10">
           <div className="mx-auto flex items-center gap-2 md:hidden">
             <img src="/images/logo-badung.png" alt="Logo Kecamatan" className="h-9 w-9" />
@@ -85,13 +83,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Username
+                Username atau Email
               </label>
               <input
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Masukkan username"
+                value={usernameOrEmail}
+                onChange={(e) => setUsernameOrEmail(e.target.value)}
+                placeholder="Masukkan username atau email"
                 autoFocus
                 className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
               />
@@ -141,9 +139,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="mt-2 w-full rounded-full bg-blue-800 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-blue-900"
+              disabled={loading}
+              className="mt-2 w-full rounded-full bg-blue-800 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Masuk
+              {loading ? "Memproses..." : "Masuk"}
             </button>
           </form>
 

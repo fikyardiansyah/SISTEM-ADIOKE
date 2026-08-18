@@ -25,7 +25,8 @@ interface RekapHari {
 }
 
 export default function AdminDashboardPage() {
-  const { counts, currentServing, loketStatus, riwayatAntrian, hapusRiwayatHari } = useQueue();
+  const { counts, currentServing, loketStatus, riwayatAntrian, hapusRiwayatHari, aktivitasLog } =
+    useQueue();
   const [rentang, setRentang] = useState<Rentang>("harian");
   const [detailHari, setDetailHari] = useState<RekapHari | null>(null);
 
@@ -65,48 +66,77 @@ export default function AdminDashboardPage() {
         <StatCard label="Loket Buka" value={`${loketBuka} / ${layananList.length}`} color="text-blue-600" />
       </div>
 
-      {/* Grafik statistik */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold text-gray-900">Statistik Antrian</h2>
-          <div className="flex rounded-full bg-gray-100 p-1">
-            {(["harian", "mingguan", "bulanan"] as Rentang[]).map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setRentang(opt)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition ${
-                  rentang === opt ? "bg-blue-600 text-white" : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
+      {/* Grafik statistik + Aktivitas terbaru */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-bold text-gray-900">Statistik Antrean</h2>
+            <div className="flex rounded-full bg-gray-100 p-1">
+              {(["harian", "mingguan", "bulanan"] as Rentang[]).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setRentang(opt)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition ${
+                    rentang === opt ? "bg-blue-600 text-white" : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
           </div>
+
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="jumlah"
+                  stroke="#2563eb"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#2563eb" }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <p className="mt-3 text-xs text-gray-400">
+            Data grafik dihitung dari tiket yang diambil sejak halaman ini dibuka (belum tersimpan
+            permanen di server — akan reset saat browser di-refresh).
+          </p>
         </div>
 
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="jumlah"
-                stroke="#2563eb"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: "#2563eb" }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Aktivitas terbaru — log nyata dari panggilSelanjutnya, tambahKategori,
+            buka/tutup loket, dan tambahLoket (lihat QueueProvider.tsx) */}
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-xl font-bold text-gray-900">Aktivitas Terbaru</h2>
 
-        <p className="mt-3 text-xs text-gray-400">
-          Data grafik dihitung dari tiket yang diambil sejak halaman ini dibuka (belum tersimpan
-          permanen di server — akan reset saat browser di-refresh).
-        </p>
+          {aktivitasLog.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-400">Belum ada aktivitas tercatat.</p>
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {aktivitasLog.slice(0, 6).map((item) => (
+                <li key={item.id} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <AktivitasIcon pesan={item.pesan} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm leading-snug text-gray-700">
+                      {item.pesan}
+                      {item.detail && <span className="font-semibold text-gray-900"> {item.detail}</span>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-400">{formatWaktuRelatif(item.waktu)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* Arsip / riwayat antrian per hari */}
@@ -225,6 +255,45 @@ export default function AdminDashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function formatWaktuRelatif(waktu: number): string {
+  const detik = Math.floor((Date.now() - waktu) / 1000);
+  if (detik < 60) return "Baru saja";
+  const menit = Math.floor(detik / 60);
+  if (menit < 60) return `${menit} menit yang lalu`;
+  const jam = Math.floor(menit / 60);
+  if (jam < 24) return `${jam} jam yang lalu`;
+  const hari = Math.floor(jam / 24);
+  return `${hari} hari yang lalu`;
+}
+
+/** Pilih ikon kecil sesuai jenis aktivitas berdasarkan kata kunci di pesannya */
+function AktivitasIcon({ pesan }: { pesan: string }) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
+
+  if (pesan.includes("memanggil antrean")) {
+    return (
+      <svg {...common} className="h-4 w-4">
+        <path d="M3 11v2a2 2 0 0 0 2 2h1l4 4V5L6 9H5a2 2 0 0 0-2 2Z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (pesan.includes("Kategori baru") || pesan.includes("Loket baru")) {
+    return (
+      <svg {...common} className="h-4 w-4">
+        <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  // diaktifkan / dinonaktifkan
+  return (
+    <svg {...common} className="h-4 w-4">
+      <path d="M12 2v8" strokeLinecap="round" />
+      <path d="M6.3 6.3a8 8 0 1 0 11.4 0" strokeLinecap="round" />
+    </svg>
   );
 }
 

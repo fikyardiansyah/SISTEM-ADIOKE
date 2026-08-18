@@ -1,27 +1,28 @@
 import { useState } from "react";
-
-// Kredensial sementara (hardcode) — ganti/sambungkan ke API auth saat backend sudah tersedia
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
+import { loginAdmin, type AdminSession } from "../lib/auth";
 
 interface LoginModalProps {
   onClose: () => void;
-  onSuccess: (username: string) => void;
+  onSuccess: (session: AdminSession) => void;
 }
 
 export default function LoginModal({ onClose, onSuccess }: LoginModalProps) {
-  const [username, setUsername] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      setError("");
-      onSuccess(username);
-    } else {
-      setError("Username atau password salah.");
+    setError("");
+    setLoading(true);
+    try {
+      const session = await loginAdmin(usernameOrEmail, password);
+      onSuccess(session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Username atau password salah.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,12 +51,12 @@ export default function LoginModal({ onClose, onSuccess }: LoginModalProps) {
 
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Username</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Username atau Email</label>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Masukkan username"
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
+              placeholder="Masukkan username atau email"
               className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               autoFocus
             />
@@ -76,9 +77,10 @@ export default function LoginModal({ onClose, onSuccess }: LoginModalProps) {
 
           <button
             type="submit"
-            className="mt-1 w-full rounded-full bg-blue-800 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900"
+            disabled={loading}
+            className="mt-1 w-full rounded-full bg-blue-800 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Sign In
+            {loading ? "Memproses..." : "Sign In"}
           </button>
         </form>
       </div>
