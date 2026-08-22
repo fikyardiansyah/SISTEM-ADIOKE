@@ -22,7 +22,7 @@ export interface LayananRow extends RowDataPacket {
 }
 
 export interface KategoriRow extends RowDataPacket {
-  id: number;
+  id: number; 
   nama: string;
   icon: string;
   deskripsi: string | null;
@@ -85,4 +85,14 @@ export interface AktivitasRow extends RowDataPacket {
   pesan: string;
   detail: string | null;
   waktu: string;
+}
+
+export interface RekapHarianRow extends RowDataPacket {
+  id: number;
+  tanggal: string;   // format "YYYY-MM-DD"
+  loket_id: string;
+  total: number;
+  dilayani: number;
+  menunggu: number;
+  created_at: string;
 }

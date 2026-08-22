@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { layananList } from "../data/layanan";
 import { useQueue } from "../context/useQueue";
 
 /**
@@ -12,7 +11,7 @@ import { useQueue } from "../context/useQueue";
  */
 export default function AdminPortalPage() {
   const navigate = useNavigate();
-  const { counts } = useQueue();
+  const { layananList, counts, loketError } = useQueue();
 
   const handlePilihLoket = (id: string) => {
     navigate(`/admin/loket/${id}`);
@@ -21,6 +20,16 @@ export default function AdminPortalPage() {
   return (
       <main className="max-w-10xl mx-auto px-4 py-10">
         <h1 className="text-center text-2xl font-bold mb-8">PILIH LAYANAN</h1>
+
+        {loketError && (
+          <p className="mx-auto mb-6 max-w-xl rounded-xl bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-600">
+            Gagal memuat daftar layanan dari server: {loketError}
+          </p>
+        )}
+
+        {layananList.length === 0 && !loketError && (
+          <p className="text-center text-gray-500">Memuat layanan...</p>
+        )}
 
         <div className="flex flex-col gap-6">
           {layananList.map((item) => (

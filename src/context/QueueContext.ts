@@ -1,6 +1,16 @@
 import { createContext } from "react";
 import type { Layanan } from "../data/layanan";
 
+/** Satu baris dari tabel rekap_harian — data historis yang tetap ada meski antrian direset */
+export interface RekapHarian {
+  id: number;
+  tanggal: string;   // "YYYY-MM-DD"
+  loketId: string;
+  total: number;
+  dilayani: number;
+  menunggu: number;
+}
+
 export type LoketStatus = "buka" | "tutup";
 export type StatusTiket = "menunggu" | "dilayani";
 
@@ -45,6 +55,8 @@ export interface AktivitasLog {
 
 export interface SurveiSubmission {
   id: string;
+  /** Opsional — kalau warga tidak isi, tampil "Anonim" di dashboard admin */
+  nama?: string;
   /** key = id pertanyaan (1-5), value = rating 1-5 bintang */
   ratings: Record<number, number>;
   saran?: string;
@@ -93,10 +105,15 @@ export interface QueueContextType {
   loketStatus: Record<string, LoketStatus>;
   /** Pesan error kalau GET /api/layanan gagal dimuat dari server (null kalau tidak ada masalah) */
   loketError: string | null;
-  /** Muat ulang riwayat antrian + aktivitas dari server — panggil ini setelah login berhasil, atau kapan saja perlu sinkron ulang */
+  /** Muat ulang riwayat antrian + aktivitas + rekap harian dari server — panggil ini setelah login berhasil, atau kapan saja perlu sinkron ulang */
   refetchAdminData: () => void;
-  /** Setiap kali warga ambil tiket, dicatat di sini — dasar grafik & riwayat harian/mingguan/bulanan */
+  /** Setiap kali warga ambil tiket, dicatat di sini — dasar grafik & riwayat harian/mingguan/bulanan (data LIVE, sebelum pernah direset) */
   riwayatAntrian: AntrianEvent[];
+  /** Arsip harian per loket dari tabel rekap_harian — TETAP ADA meski riwayatAntrian
+   *  dikosongkan lewat Reset Semua Antrian. Digabung dengan riwayatAntrian di
+   *  dashboardStats.ts (buildArsipGabungan) supaya grafik/riwayat harian di Dashboard
+   *  tidak pernah kehilangan histori. */
+  rekapHarian: RekapHarian[];
   /** Daftar kategori loket yang admin kelola */
   kategoriList: KategoriLayanan[];
   /** Log aktivitas terbaru (panggil antrean, tambah kategori, buka/tutup loket, dst) — terbaru duluan */
@@ -118,7 +135,12 @@ export interface QueueContextType {
   hapusKategori: (nama: string) => void;
   /** Hapus satu tiket dari riwayat berdasarkan id-nya */
   hapusAntrian: (eventId: string) => void;
-  /** Hapus seluruh tiket dalam satu hari (arsip), startOfDayTs = timestamp awal hari (00:00) */
+  /** Hapus seluruh tiket dalam satu hari (arsip), startOfDayTs = timestamp awal hari (00:00).
+   *  CATATAN: ini hanya menghapus data LIVE (riwayatAntrian) di hari itu — kalau hari
+   *  tersebut sudah pernah diarsipkan lewat Reset Semua Antrian (ada di rekapHarian),
+   *  bagian arsipnya TIDAK ikut terhapus dari sini (backend belum punya endpoint untuk
+   *  itu). AdminDashboardPage.tsx mematikan tombol hapus untuk hari yang sudah diarsipkan
+   *  supaya tidak menyesatkan. */
   hapusRiwayatHari: (startOfDayTs: number) => void;
   /** Admin menambah loket baru lewat form Tambah Layanan Loket (POST /api/layanan).
    *  statusAwal opsional, default "buka" kalau tidak diisi (toggle di form). */
@@ -134,9 +156,9 @@ export interface QueueContextType {
   updateAkun: (id: string, patch: Partial<Omit<AkunAdmin, "id">>) => void;
   hapusAkun: (id: string) => void;
 
-  /** Warga mengirim jawaban Survei Kepuasan Masyarakat */
-  submitSurvei: (ratings: Record<number, number>, saran?: string) => void;
-  /** Admin menghapus satu respons survei dari daftar */
+  /** Warga mengirim jawaban Survei Kepuasan Masyarakat (POST /api/survei, publik) */
+  submitSurvei: (ratings: Record<number, number>, saran?: string, nama?: string) => Promise<void>;
+  /** Admin menghapus satu respons survei dari daftar (DELETE /api/survei/:id) */
   hapusSurvei: (id: string) => void;
 }
 

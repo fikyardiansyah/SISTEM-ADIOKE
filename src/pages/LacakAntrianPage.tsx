@@ -1,5 +1,4 @@
 import { useSearchParams, useParams, Link } from "react-router-dom";
-import { layananList } from "../data/layanan";
 import { useQueue } from "../context/useQueue";
 
 /**
@@ -20,8 +19,16 @@ export default function LacakAntrianPage() {
   const [searchParams] = useSearchParams();
   const nomorSaya = searchParams.get("nomor") ?? "";
 
-  const { currentServing } = useQueue();
+  const { layananList, currentServing, loketError } = useQueue();
   const layanan = layananList.find((l) => l.id === id);
+
+  if (!layanan && !loketError && layananList.length === 0) {
+    return (
+      <main className="mx-auto max-w-md px-4 py-20 text-center">
+        <p className="text-gray-500">Memuat layanan...</p>
+      </main>
+    );
+  }
 
   if (!layanan) {
     return (

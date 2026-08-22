@@ -133,6 +133,25 @@ export async function resetSemuaAntrian(req: Request, res: Response) {
   try {
     await conn.beginTransaction();
 
+    // Snapshot rekap per hari per loket ke rekap_harian SEBELUM dihapus.
+    // ON DUPLICATE KEY UPDATE agar aman kalau reset dilakukan lebih dari
+    // sekali di hari yang sama — angka dijumlahkan, tidak ditimpa.
+    await conn.query(`
+      INSERT INTO rekap_harian (tanggal, loket_id, total, dilayani, menunggu)
+      SELECT
+        DATE(waktu_ambil)        AS tanggal,
+        loket_id,
+        COUNT(*)                 AS total,
+        SUM(status = 'dilayani') AS dilayani,
+        SUM(status = 'menunggu') AS menunggu
+      FROM antrian
+      GROUP BY DATE(waktu_ambil), loket_id
+      ON DUPLICATE KEY UPDATE
+        total    = total    + VALUES(total),
+        dilayani = dilayani + VALUES(dilayani),
+        menunggu = menunggu + VALUES(menunggu)
+    `);
+
     await conn.query("DELETE FROM antrian");
     await conn.query("UPDATE layanan SET counter_terakhir = 0, status = 'buka'");
 

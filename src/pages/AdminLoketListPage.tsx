@@ -5,7 +5,7 @@ import { useQueue } from "../context/useQueue";
 const ITEMS_PER_PAGE = 10;
 
 export default function AdminLoketListPage() {
-  const { layananList, counts, currentServing, loketStatus, tutupLoket, bukaLoket } = useQueue();
+  const { layananList, counts, currentServing, loketStatus, tutupLoket, bukaLoket, resetSemuaAntrian } = useQueue();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const kategoriFilter = searchParams.get("kategori") ?? "";
@@ -13,6 +13,7 @@ export default function AdminLoketListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [konfirmasiTutupId, setKonfirmasiTutupId] = useState<string | null>(null);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -60,15 +61,27 @@ export default function AdminLoketListPage() {
             Admin <span className="mx-1">›</span> Kelola Layanan Loket
           </p>
         </div>
-        <Link
-          to="/admin/loket/tambah"
-          className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
-          </svg>
-          Tambah Layanan Loket
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowResetDialog(true)}
+            className="flex items-center gap-2 rounded-full border-2 border-red-500 px-5 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-50"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4.93 14A8 8 0 1 0 6.34 6.34" />
+            </svg>
+            Reset Semua Antrean
+          </button>
+          <Link
+            to="/admin/loket/tambah"
+            className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+            </svg>
+            Tambah Layanan Loket
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -256,6 +269,47 @@ export default function AdminLoketListPage() {
                 className="rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-600"
               >
                 Ya, Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog konfirmasi reset semua antrean */}
+      {showResetDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+              <svg viewBox="0 0 24 24" className="h-7 w-7 text-red-500" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4.93 14A8 8 0 1 0 6.34 6.34" />
+              </svg>
+            </div>
+            <p className="text-lg font-bold text-gray-900">Reset Semua Antrean?</p>
+            <p className="mt-2 text-sm text-gray-500">
+              Semua tiket antrean akan dihapus dan nomor urut semua loket akan kembali ke{" "}
+              <span className="font-semibold text-red-600">0</span>. Tindakan ini tidak dapat dibatalkan.
+            </p>
+
+            <div className="mt-6 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowResetDialog(false)}
+                className="rounded-full border border-gray-200 px-5 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetSemuaAntrian();
+                  setShowResetDialog(false);
+                }}
+                className="flex items-center gap-2 rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-600"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4.93 14A8 8 0 1 0 6.34 6.34" />
+                </svg>
+                Ya, Reset Sekarang
               </button>
             </div>
           </div>

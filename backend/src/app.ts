@@ -5,6 +5,8 @@ import authRoutes from "./routes/AuthRoutes.js";
 import layananRoutes from "./routes/LayananRoutes.js";
 import antrianRoutes from "./routes/AntrianRoutes.js";
 import aktivitasRoutes from "./routes/AktivitasRoutes.js";
+import rekapHarianRoutes from "./routes/RekapHarianRoutes.js";
+import surveiRoutes from "./routes/SurveiRoutes.js";
 
 const app = express();
 
@@ -25,6 +27,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/layanan", layananRoutes);
 app.use("/api/antrian", antrianRoutes);
 app.use("/api/aktivitas", aktivitasRoutes);
+app.use("/api/rekap-harian", rekapHarianRoutes);
+app.use("/api/survei", surveiRoutes);
 
 // 404 — route tidak dikenal
 app.use((_req, res) => {

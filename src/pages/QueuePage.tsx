@@ -2,13 +2,20 @@ import { useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
-import { layananList } from "../data/layanan";
 import { useQueue } from "../context/useQueue";
 
 export default function QueuePage() {
   const { id } = useParams();
-  const { counts } = useQueue();
+  const { layananList, counts, loketError } = useQueue();
   const layanan = layananList.find((l) => l.id === id);
+
+  if (!layanan && !loketError && layananList.length === 0) {
+    return (
+      <main className="text-center py-20">
+        <p className="text-gray-500">Memuat layanan...</p>
+      </main>
+    );
+  }
 
   const ticketRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);

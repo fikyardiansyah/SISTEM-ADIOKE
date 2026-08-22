@@ -1,4 +1,3 @@
-import { layananList } from "../data/layanan";
 import { useQueue } from "../context/useQueue";
 
 /**
@@ -7,11 +6,19 @@ import { useQueue } from "../context/useQueue";
  * Tidak perlu login untuk mengakses (bisa dibuka di layar publik).
  */
 export default function DisplayPage() {
-  const { currentServing, loketStatus } = useQueue();
+  const { layananList, currentServing, loketStatus, loketError } = useQueue();
 
   return (
     <main className="min-h-screen bg-blue-900 px-8 py-10 text-white">
       <h1 className="mb-10 text-center text-3xl font-bold">NOMOR ANTRIAN SEDANG DILAYANI</h1>
+
+      {loketError && (
+        <p className="mb-6 text-center text-red-300">Gagal memuat layanan: {loketError}</p>
+      )}
+
+      {layananList.length === 0 && !loketError && (
+        <p className="text-center opacity-70">Memuat layanan...</p>
+      )}
 
       <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
         {layananList.map((l) => {

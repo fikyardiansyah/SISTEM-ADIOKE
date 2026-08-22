@@ -1,5 +1,4 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { layananList } from "../data/layanan";
 import { useQueue } from "../context/useQueue";
 
 /**
@@ -77,9 +76,17 @@ async function umumkanAntrian(nomorAntrian: string, namaLoket: string) {
 export default function AdminLoketPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { counts, currentServing, loketStatus, panggilSelanjutnya, tutupLoket, bukaLoket } =
+  const { layananList, counts, currentServing, loketStatus, panggilSelanjutnya, tutupLoket, bukaLoket, loketError } =
     useQueue();
   const layanan = layananList.find((l) => l.id === id);
+
+  if (!layanan && !loketError && layananList.length === 0) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-gray-500">Memuat layanan...</p>
+      </div>
+    );
+  }
 
   if (!layanan) {
     return (
@@ -218,7 +225,7 @@ export default function AdminLoketPage() {
             disabled={!sedangBuka}
             className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            SELANJUTNYA
+            SELANJUTNYA 
             <IconArrowRight className="h-4 w-4" />
           </button>
         </div>

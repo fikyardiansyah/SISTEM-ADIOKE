@@ -14,6 +14,7 @@ import {
   type AkunAdmin,
   type TambahAkunInput,
   type SurveiSubmission,
+  type RekapHarian,
 } from "./QueueContext";
 
 function buatIdTiket() {
@@ -64,6 +65,23 @@ interface AktivitasApiRow {
   waktu: string;
 }
 
+interface RekapApiRow {
+  id: number;
+  tanggal: string; // "YYYY-MM-DD"
+  loket_id: string;
+  total: number;
+  dilayani: number;
+  menunggu: number;
+}
+
+interface SurveiApiRow {
+  id: string;
+  nama: string | null;
+  saran: string | null;
+  created_at: string;
+  ratings: Record<number, number>;
+}
+
 export function QueueProvider({ children }: { children: ReactNode }) {
   const [layananList, setLayananList] = useState<Layanan[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -104,6 +122,16 @@ export function QueueProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     muatUlangLayanan();
+  }, []);
+
+  // Polling ringan setiap 30 detik — memastikan tampilan counts (jumlah
+  // antrean) di QueuePage (pengunjung) dan AdminPortalPage selalu sinkron
+  // dengan database setelah reset manual dilakukan oleh admin.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      muatUlangLayanan();
+    }, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   const [riwayatAntrian, setRiwayatAntrian] = useState<AntrianEvent[]>([]);
@@ -147,11 +175,61 @@ export function QueueProvider({ children }: { children: ReactNode }) {
       .catch((err: Error) => console.error("Gagal memuat aktivitas:", err));
   };
 
+  const [rekapHarian, setRekapHarian] = useState<RekapHarian[]>([]);
+
+  /** Data historis (tabel rekap_harian) — TETAP ADA meski tabel antrian
+   *  di-reset, karena disalin ke sini sebelum penghapusan (lihat backend
+   *  resetSemuaAntrian). Dashboard menggabungkan ini dengan riwayatAntrian
+   *  (yang live/belum di-reset) supaya grafik tren tidak "kosong lagi"
+   *  setiap kali admin reset antrean. */
+  const muatUlangRekapHarian = () => {
+    const session = getAdminSession();
+    if (!session) return;
+    apiFetch<RekapApiRow[]>("/rekap-harian", {}, session.token)
+      .then((rows) => {
+        setRekapHarian(
+          rows.map((r) => ({
+            id: r.id,
+            tanggal: r.tanggal,
+            loketId: r.loket_id,
+            total: r.total,
+            dilayani: r.dilayani,
+            menunggu: r.menunggu,
+          }))
+        );
+      })
+      .catch((err: Error) => console.error("Gagal memuat rekap harian:", err));
+  };
+
+  const [surveiList, setSurveiList] = useState<SurveiSubmission[]>([]);
+
+  /** SUDAH TERSAMBUNG KE BACKEND — GET /api/survei (admin only). Dipanggil
+   *  lewat refetchAdminData, sama seperti riwayat/aktivitas/rekap harian. */
+  const muatUlangSurvei = () => {
+    const session = getAdminSession();
+    if (!session) return;
+    apiFetch<SurveiApiRow[]>("/survei", {}, session.token)
+      .then((rows) => {
+        setSurveiList(
+          rows.map((r) => ({
+            id: r.id,
+            nama: r.nama ?? undefined,
+            ratings: r.ratings,
+            saran: r.saran ?? undefined,
+            timestamp: new Date(r.created_at).getTime(),
+          }))
+        );
+      })
+      .catch((err: Error) => console.error("Gagal memuat survei:", err));
+  };
+
   /** Dipanggil setelah login berhasil (LoginPage/LoginModal), dan sekali saat
    *  mount kalau ternyata sesi login masih ada (refresh halaman). */
   const refetchAdminData = () => {
     muatUlangRiwayat();
     muatUlangAktivitas();
+    muatUlangRekapHarian();
+    muatUlangSurvei();
   };
 
   useEffect(() => {
@@ -167,7 +245,6 @@ export function QueueProvider({ children }: { children: ReactNode }) {
       { nama: "Perizinan", icon: "building", deskripsi: "Pengurusan berbagai izin usaha mikro, surat keterangan domisili usaha, dan izin mendirikan bangunan skala kecil.", updatedAt: now },
     ];
   });
-  const [surveiList, setSurveiList] = useState<SurveiSubmission[]>([]);
 
   const [pengaturan, setPengaturan] = useState<PengaturanSistem>(() => ({
     namaInstansi: "Kecamatan Kuta Selatan",
@@ -314,6 +391,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         muatUlangLayanan();
         muatUlangRiwayat();
         muatUlangAktivitas();
+        muatUlangRekapHarian();
       })
       .catch((err: Error) => console.error("Gagal reset semua antrian:", err));
   };
@@ -396,17 +474,26 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     catatAktivitas("Akun dihapus", nama);
   };
 
-  const submitSurvei = (ratings: Record<number, number>, saran?: string) => {
-    setSurveiList((prev) => [
-      { id: buatIdTiket(), ratings, saran: saran?.trim() || undefined, timestamp: Date.now() },
-      ...prev,
-    ]);
-    catatAktivitas("Survei kepuasan baru diterima dari warga");
+  // SUDAH TERSAMBUNG KE BACKEND — POST /api/survei, publik (warga belum
+  // login saat mengisi survei). Tidak perlu refetch surveiList di sini
+  // karena warga tidak lihat dashboard admin; admin yang login akan lihat
+  // respons baru ini lewat refetchAdminData berikutnya.
+  const submitSurvei = async (ratings: Record<number, number>, saran?: string, nama?: string) => {
+    await apiFetch("/survei", {
+      method: "POST",
+      body: JSON.stringify({ ratings, saran, nama }),
+    });
   };
 
   const hapusSurvei = (id: string) => {
-    setSurveiList((prev) => prev.filter((s) => s.id !== id));
-    catatAktivitas("Respons survei dihapus");
+    const session = getAdminSession();
+    if (!session) return;
+    apiFetch(`/survei/${id}`, { method: "DELETE" }, session.token)
+      .then(() => {
+        muatUlangSurvei();
+        muatUlangAktivitas();
+      })
+      .catch((err: Error) => console.error("Gagal menghapus survei:", err));
   };
 
   return (
@@ -422,6 +509,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         kategoriList,
         aktivitasLog,
         surveiList,
+        rekapHarian,
         ambilAntrian,
         panggilSelanjutnya,
         tutupLoket,
