@@ -5,14 +5,18 @@ import DashboardPerformanceCards from "../components/dashboard/DashboardPerforma
 import DashboardRecentActivity from "../components/dashboard/DashboardRecentActivity";
 import DashboardServiceDonut from "../components/dashboard/DashboardServiceDonut";
 import DashboardTrendChart from "../components/dashboard/DashboardTrendChart";
+import DashboardDateRangeFilter from "../components/dashboard/DashboardDateRangeFilter";
 import { useQueue } from "../context/useQueue";
 import type { Layanan } from "../data/layanan";
 import type { AntrianEvent, RekapHarian } from "../context/QueueContext";
 import {
-  buildPerformanceStats,
-  buildQueueStats,
-  buildServiceDistribution,
-  buildTrendFromRekapDanRiwayat,
+  buildQueueStatsUntukRentang,
+  buildPerformanceStatsUntukRentang,
+  buildServiceDistributionUntukRentang,
+  buildTrendUntukRentang,
+  rentangPreset,
+  rentangSebelumnya,
+  hitungPersenPerubahan,
 } from "../data/dashboardStats";
 
 interface RekapPerLoket {
@@ -40,34 +44,71 @@ interface RekapHari {
 }
 
 export default function AdminDashboardPage() {
-  const { layananList, counts, currentServing, loketStatus, riwayatAntrian, hapusRiwayatHari, aktivitasLog, rekapHarian } =
+  const { layananList, loketStatus, riwayatAntrian, hapusRiwayatHari, aktivitasLog, rekapHarian } =
     useQueue();
   const [detailHari, setDetailHari] = useState<RekapHari | null>(null);
+  const [rentang, setRentang] = useState(() => rentangPreset(7));
+
+  const rentangPembanding = useMemo(() => rentangSebelumnya(rentang), [rentang]);
 
   const queueStats = useMemo(
-    () => buildQueueStats(counts, currentServing, loketStatus, layananList),
-    [counts, currentServing, loketStatus, layananList]
+    () => buildQueueStatsUntukRentang(rekapHarian, riwayatAntrian, layananList, loketStatus, rentang),
+    [rekapHarian, riwayatAntrian, layananList, loketStatus, rentang]
+  );
+  const queueStatsSebelumnya = useMemo(
+    () => buildQueueStatsUntukRentang(rekapHarian, riwayatAntrian, layananList, loketStatus, rentangPembanding),
+    [rekapHarian, riwayatAntrian, layananList, loketStatus, rentangPembanding]
   );
 
   const performanceStats = useMemo(
-    () => buildPerformanceStats(riwayatAntrian),
-    [riwayatAntrian]
+    () => buildPerformanceStatsUntukRentang(riwayatAntrian, rentang),
+    [riwayatAntrian, rentang]
+  );
+  const performanceStatsSebelumnya = useMemo(
+    () => buildPerformanceStatsUntukRentang(riwayatAntrian, rentangPembanding),
+    [riwayatAntrian, rentangPembanding]
   );
 
+  // Trend badge per KPI — dihitung sekali di sini, tinggal dioper ke komponen kartu
+  const trendKpi = {
+    total: hitungPersenPerubahan(queueStats.total, queueStatsSebelumnya.total),
+    served: hitungPersenPerubahan(queueStats.served, queueStatsSebelumnya.served),
+    waiting: hitungPersenPerubahan(queueStats.waiting, queueStatsSebelumnya.waiting),
+  };
+  const trendPerforma = {
+    rataTunggu: hitungPersenPerubahan(performanceStats.rataTungguMenit, performanceStatsSebelumnya.rataTungguMenit),
+    rataPelayanan: hitungPersenPerubahan(
+      performanceStats.rataPelayananMenit,
+      performanceStatsSebelumnya.rataPelayananMenit
+    ),
+    antreanTerlama: hitungPersenPerubahan(
+      performanceStats.antreanTerlamaMenit,
+      performanceStatsSebelumnya.antreanTerlamaMenit
+    ),
+  };
+
   const trendData = useMemo(
-    () => buildTrendFromRekapDanRiwayat(rekapHarian, riwayatAntrian),
-    [rekapHarian, riwayatAntrian]
+    () => buildTrendUntukRentang(rekapHarian, riwayatAntrian, rentang),
+    [rekapHarian, riwayatAntrian, rentang]
   );
 
   const serviceDistribution = useMemo(
-    () => buildServiceDistribution(rekapHarian, riwayatAntrian, layananList),
-    [rekapHarian, riwayatAntrian, layananList]
+    () => buildServiceDistributionUntukRentang(rekapHarian, riwayatAntrian, layananList, rentang),
+    [rekapHarian, riwayatAntrian, layananList, rentang]
   );
 
   const arsipHarian = useMemo(
     () => buildArsipGabungan(rekapHarian, riwayatAntrian, layananList),
     [rekapHarian, riwayatAntrian, layananList]
   );
+
+  const [cariTanggal, setCariTanggal] = useState("");
+
+  const arsipHarianTampil = useMemo(() => {
+    const kataKunci = cariTanggal.trim().toLowerCase();
+    if (!kataKunci) return arsipHarian;
+    return arsipHarian.filter((hari) => hari.label.toLowerCase().includes(kataKunci));
+  }, [arsipHarian, cariTanggal]);
 
   const handleHapusHari = (hari: RekapHari) => {
     if (!hari.adaLive) return; // tombol sudah disabled, ini jaga-jaga tambahan
@@ -92,9 +133,11 @@ export default function AdminDashboardPage() {
         </Link>
       </div>
 
-      <DashboardKpiSection stats={queueStats} />
+      <DashboardDateRangeFilter rentang={rentang} onChange={setRentang} />
 
-      <DashboardPerformanceCards stats={performanceStats} />
+      <DashboardKpiSection stats={queueStats} trend={trendKpi} />
+
+      <DashboardPerformanceCards stats={performanceStats} trend={trendPerforma} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

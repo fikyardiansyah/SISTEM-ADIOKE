@@ -99,9 +99,26 @@ export async function panggilSelanjutnya(req: Request, res: Response) {
   }
 }
 
-/** GET /api/antrian?loketId=xxx&status=menunggu — riwayat tiket, dipakai Laporan & Dashboard */
+/**
+ * GET /api/antrian?loketId=xxx&status=menunggu&sejak=90 — riwayat tiket,
+ * dipakai AdminDashboardPage & AdminLaporanPage.
+ *
+ * `sejak` (opsional) = jumlah hari ke belakang, mis. "sejak=90" untuk 90
+ * hari terakhir. Kalau tidak diisi, ambil semua (tanpa filter tanggal).
+ *
+ * SEBELUMNYA hard-cap LIMIT 500 di sini bikin filter "90 Hari Terakhir" /
+ * "Semua Waktu" di AdminLaporanPage bisa salah — tiket lama kepotong diam-
+ * diam kalau total tiket di database sudah lebih dari 500, padahal
+ * secara tanggal harusnya masih masuk rentang. Sekarang filter tanggal
+ * dilakukan DI QUERY (bukan cuma di frontend), jadi limit yang tersisa
+ * cuma jaring pengaman kalau `sejak` tidak diisi sama sekali.
+ */
 export async function getAntrian(req: Request, res: Response) {
-  const { loketId, status } = req.query as { loketId?: string; status?: string };
+  const { loketId, status, sejak } = req.query as {
+    loketId?: string;
+    status?: string;
+    sejak?: string;
+  };
 
   let sql = "SELECT * FROM antrian WHERE 1=1";
   const params: unknown[] = [];
@@ -114,7 +131,14 @@ export async function getAntrian(req: Request, res: Response) {
     sql += " AND status = ?";
     params.push(status);
   }
-  sql += " ORDER BY waktu_ambil DESC LIMIT 500";
+
+  const hariKeBelakang = sejak ? Number(sejak) : null;
+  if (hariKeBelakang && Number.isFinite(hariKeBelakang) && hariKeBelakang > 0) {
+    sql += " AND waktu_ambil >= (NOW() - INTERVAL ? DAY)";
+    params.push(hariKeBelakang);
+  }
+
+  sql += " ORDER BY waktu_ambil DESC LIMIT 5000";
 
   const [rows] = await pool.query<AntrianRow[]>(sql, params);
   res.json({ success: true, data: rows });

@@ -50,38 +50,53 @@ function IconDoorOpen(props: IconProps) {
   );
 }
 
-interface DashboardKpiSectionProps {
-  stats: QueueStats;
+interface TrendKpi {
+  total: number | null;
+  served: number | null;
+  waiting: number | null;
 }
 
-export default function DashboardKpiSection({ stats }: DashboardKpiSectionProps) {
+interface DashboardKpiSectionProps {
+  stats: QueueStats;
+  trend?: TrendKpi;
+}
+
+function labelTrend(persen: number | null | undefined): string {
+  if (persen === undefined) return "";
+  if (persen === null) return " · Baru dibanding periode lalu";
+  if (persen === 0) return " · Sama dengan periode lalu";
+  const tanda = persen > 0 ? "+" : "";
+  return ` · ${tanda}${persen.toFixed(1)}% vs periode lalu`;
+}
+
+export default function DashboardKpiSection({ stats, trend }: DashboardKpiSectionProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <DashboardStatCard
         label="Total Antrean Diambil"
         value={stats.total.toLocaleString("id-ID")}
-        description="Total antrean hari ini"
+        description={`Total antrean periode ini${labelTrend(trend?.total)}`}
         accent="blue"
         icon={<IconTicket className="h-5 w-5" />}
       />
       <DashboardStatCard
         label="Sudah Dilayani"
         value={stats.served.toLocaleString("id-ID")}
-        description="Antrean telah selesai dilayani"
+        description={`Antrean telah selesai dilayani${labelTrend(trend?.served)}`}
         accent="green"
         icon={<IconCheckCircle className="h-5 w-5" />}
       />
       <DashboardStatCard
         label="Masih Menunggu"
         value={stats.waiting.toLocaleString("id-ID")}
-        description="Antrean yang masih menunggu"
+        description={`Antrean yang masih menunggu${labelTrend(trend?.waiting)}`}
         accent="orange"
         icon={<IconHourglass className="h-5 w-5" />}
       />
       <DashboardStatCard
         label="Loket Aktif"
         value={`${stats.activeCounters} / ${stats.totalCounters}`}
-        description="Loket sedang aktif"
+        description="Loket sedang aktif (status saat ini)"
         accent="indigo"
         icon={<IconDoorOpen className="h-5 w-5" />}
       />

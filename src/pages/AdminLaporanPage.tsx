@@ -215,7 +215,7 @@ export default function AdminLaporanPage() {
 
   const dilayaniSekarang = eventsSekarang.filter((e) => e.status === "dilayani").length;
   const tingkatSelesaiSekarang = totalSekarang > 0 ? (dilayaniSekarang / totalSekarang) * 100 : 0;
-  const dilayaniSebelumnya = eventsSebelumnya?.filter((e) => e.status === "dilayani").length ?? 0;
+  const dilayaniSebelumnya = eventsSebelumnya?.filter((e) => e.status === "dilayani").length ?? 0;  
   const tingkatSelesaiSebelumnya =
     eventsSebelumnya && eventsSebelumnya.length > 0
       ? (dilayaniSebelumnya / eventsSebelumnya.length) * 100
@@ -438,9 +438,11 @@ export default function AdminLaporanPage() {
 
       <p className="text-xs text-gray-400">
         Catatan: rata-rata waktu tunggu dihitung dari selisih waktu tiket diambil sampai
-        dipanggil admin. Data belum tersimpan permanen di server — akan reset saat browser
-        di-refresh. Kartu "Satisfaction Rating" belum tersedia karena belum ada modul survei
-        yang terhubung ke sistem ini.
+        dipanggil admin. Data ini tersimpan permanen di server (bukan lagi hilang saat
+        di-refresh) — TAPI detail waktu per-tiket tidak ikut disimpan begitu admin menekan
+        "Reset Semua Antrian" (cuma total/dilayani/menunggu-nya yang diarsipkan), jadi laporan
+        waktu tunggu ini hanya mencakup periode sejak reset terakhir. Kartu "Satisfaction
+        Rating" belum tersedia karena belum ada modul survei yang terhubung ke sistem ini.
       </p>
     </div>
   );

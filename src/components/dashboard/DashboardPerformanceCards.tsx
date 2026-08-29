@@ -38,32 +38,89 @@ function IconHourglass(props: IconProps) {
   );
 }
 
+function IconArrowUp(props: IconProps) {
+  return (
+    <svg {...baseIconProps} {...props}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
+function IconArrowDown(props: IconProps) {
+  return (
+    <svg {...baseIconProps} {...props}>
+      <path d="M12 5v14M6 13l6 6 6-6" />
+    </svg>
+  );
+}
+
+/** Badge netral (bukan merah/hijau) — konsisten dengan gaya yang sudah
+ *  dipakai di halaman Laporan. Untuk metrik waktu (tunggu/pelayanan),
+ *  "lebih cepat" vs "lebih lambat" itu konteksual, jadi sengaja tidak
+ *  diberi warna hijau/merah supaya tidak menyesatkan. */
+function TrendBadge({ persen }: { persen: number | null | undefined }) {
+  if (persen === undefined) return null;
+  if (persen === null) {
+    return (
+      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-400">
+        Baru
+      </span>
+    );
+  }
+  if (persen === 0) {
+    return (
+      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-400">
+        0%
+      </span>
+    );
+  }
+  const naik = persen > 0;
+  return (
+    <span className="flex items-center gap-0.5 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+      {naik ? <IconArrowUp className="h-3 w-3" /> : <IconArrowDown className="h-3 w-3" />}
+      {Math.abs(persen).toFixed(1)}%
+    </span>
+  );
+}
+
 interface PerformanceCardProps {
   label: string;
   value: string;
   icon: React.ReactNode;
   accent: string;
+  trend?: number | null;
 }
 
-function PerformanceCard({ label, value, icon, accent }: PerformanceCardProps) {
+function PerformanceCard({ label, value, icon, accent, trend }: PerformanceCardProps) {
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:shadow-md">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent}`}>
         {icon}
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-gray-500">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-gray-900">{value}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <p className="text-xl font-bold text-gray-900">{value}</p>
+          <TrendBadge persen={trend} />
+        </div>
+        <p className="mt-0.5 text-[11px] text-gray-400">vs periode lalu</p>
       </div>
     </div>
   );
 }
 
-interface DashboardPerformanceCardsProps {
-  stats: PerformanceStats;
+interface TrendPerforma {
+  rataTunggu: number | null;
+  rataPelayanan: number | null;
+  antreanTerlama: number | null;
 }
 
-export default function DashboardPerformanceCards({ stats }: DashboardPerformanceCardsProps) {
+interface DashboardPerformanceCardsProps {
+  stats: PerformanceStats;
+  trend?: TrendPerforma;
+}
+
+export default function DashboardPerformanceCards({ stats, trend }: DashboardPerformanceCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <PerformanceCard
@@ -71,18 +128,21 @@ export default function DashboardPerformanceCards({ stats }: DashboardPerformanc
         value={`${stats.rataTungguMenit} menit`}
         icon={<IconClock className="h-5 w-5" />}
         accent="bg-orange-50 text-orange-500"
+        trend={trend?.rataTunggu}
       />
       <PerformanceCard
         label="Rata-rata Waktu Pelayanan"
         value={`${stats.rataPelayananMenit} menit`}
         icon={<IconTimer className="h-5 w-5" />}
         accent="bg-green-50 text-green-600"
+        trend={trend?.rataPelayanan}
       />
       <PerformanceCard
         label="Antrean Terlama"
         value={`${stats.antreanTerlamaMenit} menit`}
         icon={<IconHourglass className="h-5 w-5" />}
         accent="bg-red-50 text-red-500"
+        trend={trend?.antreanTerlama}
       />
     </div>
   );

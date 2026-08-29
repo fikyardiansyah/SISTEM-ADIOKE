@@ -46,12 +46,138 @@ export const mockPerformanceStats: PerformanceStats = {
 /** Kunci tanggal lokal "YYYY-MM-DD" dari sebuah timestamp — dipakai untuk
  *  mengelompokkan riwayat live per hari, format yang sama dengan kolom
  *  `tanggal` di tabel rekap_harian (DATE(waktu_ambil) di MySQL). */
-function tanggalKeyDariTimestamp(ts: number): string {
+export function tanggalKeyDariTimestamp(ts: number): string {
   const d = new Date(ts);
   const tahun = d.getFullYear();
   const bulan = String(d.getMonth() + 1).padStart(2, "0");
   const tanggal = String(d.getDate()).padStart(2, "0");
   return `${tahun}-${bulan}-${tanggal}`;
+}
+
+export interface RentangTanggal {
+  mulai: string; // "YYYY-MM-DD", inklusif
+  akhir: string; // "YYYY-MM-DD", inklusif
+}
+
+function formatTanggalKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function tanggalDalamRentang(tanggalKey: string, rentang: RentangTanggal): boolean {
+  return tanggalKey >= rentang.mulai && tanggalKey <= rentang.akhir;
+}
+
+/** Rentang preset "N Hari Terakhir", termasuk hari ini. */
+export function rentangPreset(jumlahHari: number): RentangTanggal {
+  const akhir = new Date();
+  const mulai = new Date();
+  mulai.setDate(mulai.getDate() - (jumlahHari - 1));
+  return { mulai: formatTanggalKey(mulai), akhir: formatTanggalKey(akhir) };
+}
+
+/** Rentang dengan panjang sama, tepat SEBELUM rentang yang diberikan —
+ *  dasar perhitungan badge "vs periode sebelumnya" (mis. 8-14 Sep jadi
+ *  pembanding untuk 15-21 Sep, sama-sama 7 hari). */
+export function rentangSebelumnya(rentang: RentangTanggal): RentangTanggal {
+  const mulai = new Date(`${rentang.mulai}T00:00:00`);
+  const akhir = new Date(`${rentang.akhir}T00:00:00`);
+  const panjangHari = Math.round((akhir.getTime() - mulai.getTime()) / 86400000) + 1;
+
+  const akhirBaru = new Date(mulai);
+  akhirBaru.setDate(akhirBaru.getDate() - 1);
+  const mulaiBaru = new Date(akhirBaru);
+  mulaiBaru.setDate(mulaiBaru.getDate() - (panjangHari - 1));
+
+  return { mulai: formatTanggalKey(mulaiBaru), akhir: formatTanggalKey(akhirBaru) };
+}
+
+/** Persentase perubahan sekarang vs sebelumnya. `null` artinya tidak
+ *  terhingga (sebelumnya 0 tapi sekarang > 0) — tampilkan label "Baru" di
+ *  UI untuk kasus ini, bukan "%". */
+export function hitungPersenPerubahan(sekarang: number, sebelumnya: number): number | null {
+  if (sebelumnya === 0) return sekarang === 0 ? 0 : null;
+  return ((sekarang - sebelumnya) / sebelumnya) * 100;
+}
+
+/** Bangun QueueStats HANYA dari tiket dalam rentang tanggal tertentu —
+ *  gabungan rekapHarian (arsip) + riwayat (live), sama seperti fungsi
+ *  gabungan lain di file ini. `activeCounters`/`totalCounters` tetap
+ *  status LIVE saat ini (tidak ada histori status buka/tutup per hari),
+ *  jadi angka itu tidak ikut berubah sesuai rentang yang dipilih. */
+export function buildQueueStatsUntukRentang(
+  rekapHarian: RekapHarian[],
+  riwayat: AntrianEvent[],
+  layananList: Layanan[],
+  loketStatus: Record<string, "buka" | "tutup">,
+  rentang: RentangTanggal
+): QueueStats {
+  let total = 0;
+  let served = 0;
+
+  rekapHarian.forEach((r) => {
+    if (tanggalDalamRentang(r.tanggal, rentang)) {
+      total += r.total;
+      served += r.dilayani;
+    }
+  });
+
+  riwayat.forEach((e) => {
+    if (tanggalDalamRentang(tanggalKeyDariTimestamp(e.timestamp), rentang)) {
+      total += 1;
+      if (e.status === "dilayani") served += 1;
+    }
+  });
+
+  return {
+    total,
+    served,
+    waiting: Math.max(total - served, 0),
+    activeCounters: layananList.filter((l) => (loketStatus[l.id] ?? "buka") === "buka").length,
+    totalCounters: layananList.length,
+  };
+}
+
+/** Bangun PerformanceStats HANYA dari tiket live dalam rentang tanggal
+ *  tertentu. Tidak bisa memasukkan data arsip (rekap_harian) — sudah
+ *  dijelaskan di buildPerformanceStats kenapa, waktu per-tiket memang
+ *  tidak disimpan di tabel arsip. */
+export function buildPerformanceStatsUntukRentang(
+  riwayat: AntrianEvent[],
+  rentang: RentangTanggal
+): PerformanceStats {
+  const eventsDalamRentang = riwayat.filter((e) =>
+    tanggalDalamRentang(tanggalKeyDariTimestamp(e.timestamp), rentang)
+  );
+  return buildPerformanceStats(eventsDalamRentang);
+}
+
+/** Sama seperti buildServiceDistribution, tapi dibatasi ke satu rentang
+ *  tanggal saja — dan SENGAJA TIDAK fallback ke data dummy kalau hasilnya
+ *  kosong (array kosong = jujur belum ada tiket di periode itu). */
+export function buildServiceDistributionUntukRentang(
+  rekapHarian: RekapHarian[],
+  riwayat: AntrianEvent[],
+  layananList: Layanan[],
+  rentang: RentangTanggal
+): ServiceDistributionItem[] {
+  const rekapDalamRentang = rekapHarian.filter((r) => tanggalDalamRentang(r.tanggal, rentang));
+  const riwayatDalamRentang = riwayat.filter((e) =>
+    tanggalDalamRentang(tanggalKeyDariTimestamp(e.timestamp), rentang)
+  );
+  return agregasiDistribusiLayanan(rekapDalamRentang, riwayatDalamRentang, layananList);
+}
+
+/** Sama seperti buildTrendFromRekapDanRiwayat, tapi dibatasi ke satu rentang tanggal saja. */
+export function buildTrendUntukRentang(
+  rekapHarian: RekapHarian[],
+  riwayat: AntrianEvent[],
+  rentang: RentangTanggal
+): MonthlyTrendPoint[] {
+  const rekapDalamRentang = rekapHarian.filter((r) => tanggalDalamRentang(r.tanggal, rentang));
+  const riwayatDalamRentang = riwayat.filter((e) =>
+    tanggalDalamRentang(tanggalKeyDariTimestamp(e.timestamp), rentang)
+  );
+  return buildTrendFromRekapDanRiwayat(rekapDalamRentang, riwayatDalamRentang);
 }
 
 function labelTanggal(tanggalKey: string): string {
@@ -132,23 +258,17 @@ export function buildQueueStats(
 }
 
 /**
- * SEBELUMNYA: fallback ke mockServiceDistribution setiap kali `riwayat`
- * (data live) kosong — termasuk tepat setelah "Reset Semua Antrian",
- * padahal datanya SEBENARNYA masih ada (sudah dipindah ke rekap_harian).
- * Itu penyebab donut chart balik nampilin angka dummy "148" alih-alih
- * angka asli yang sudah diarsipkan.
- *
- * SEKARANG: gabungkan rekapHarian (arsip permanen, TIDAK ikut kosong
- * saat reset) dengan riwayat (live) dulu — cuma jatuh ke mock kalau
- * BENERAN belum ada data sama sekali di keduanya (instalasi baru).
+ * Agregasi murni — TANPA fallback ke data dummy. Dipakai baik oleh
+ * `buildServiceDistribution` (all-time, boleh fallback ke mock kalau
+ * instalasi benar-benar baru) maupun `buildServiceDistributionUntukRentang`
+ * (per rentang tanggal, TIDAK BOLEH fallback — array kosong itu jawaban
+ * yang jujur kalau memang tidak ada tiket di periode yang dipilih).
  *
  * Dikelompokkan PER LOKET (nama loket, mis. "Rekam E-KTP", "Samsat
  * Digital"), BUKAN per kategori (Umum/Kependudukan/Perizinan) — supaya
- * admin bisa langsung lihat loket spesifik mana yang paling ramai,
- * bukan cuma kategori besarnya yang mencampur beberapa loket jadi satu
- * angka.
+ * admin bisa langsung lihat loket spesifik mana yang paling ramai.
  */
-export function buildServiceDistribution(
+function agregasiDistribusiLayanan(
   rekapHarian: RekapHarian[],
   riwayat: AntrianEvent[],
   layananList: Layanan[]
@@ -168,11 +288,35 @@ export function buildServiceDistribution(
     map.set(nama, (map.get(nama) ?? 0) + 1);
   });
 
-  if (map.size === 0) return mockServiceDistribution;
-
   return Array.from(map.entries())
     .map(([nama, jumlah]) => ({ nama, jumlah }))
     .sort((a, b) => b.jumlah - a.jumlah);
+}
+
+/**
+ * SEBELUMNYA: fallback ke mockServiceDistribution setiap kali `riwayat`
+ * (data live) kosong — termasuk tepat setelah "Reset Semua Antrian",
+ * padahal datanya SEBENARNYA masih ada (sudah dipindah ke rekap_harian).
+ * Itu penyebab donut chart balik nampilin angka dummy "148" alih-alih
+ * angka asli yang sudah diarsipkan.
+ *
+ * SEKARANG: gabungkan rekapHarian (arsip permanen, TIDAK ikut kosong
+ * saat reset) dengan riwayat (live) dulu — cuma jatuh ke mock kalau
+ * BENERAN belum ada data sama sekali di keduanya (instalasi baru).
+ *
+ * CATATAN: fallback mock di fungsi ini HANYA cocok dipakai untuk tampilan
+ * "sepanjang waktu" (all-time). Untuk tampilan per rentang tanggal, pakai
+ * `buildServiceDistributionUntukRentang` di bawah — itu TIDAK fallback ke
+ * mock, karena "kosong di rentang yang dipilih" itu beda makna dengan
+ * "belum pernah ada data sama sekali".
+ */
+export function buildServiceDistribution(
+  rekapHarian: RekapHarian[],
+  riwayat: AntrianEvent[],
+  layananList: Layanan[]
+): ServiceDistributionItem[] {
+  const hasil = agregasiDistribusiLayanan(rekapHarian, riwayat, layananList);
+  return hasil.length === 0 ? mockServiceDistribution : hasil;
 }
 
 /**
