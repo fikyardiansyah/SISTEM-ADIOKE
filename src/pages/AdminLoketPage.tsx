@@ -7,7 +7,7 @@ import { useQueue } from "../context/useQueue";
  * sebelum suara pengumuman. Promise selesai (resolve) setelah chime habis,
  * supaya TTS bisa menyusul TEPAT setelah bunyi berhenti.
  */
-function mainkanChime(): Promise<void> {
+function mainkanChime(volume: number): Promise<void> {
   return new Promise((resolve) => {
     const AudioCtxClass =
       window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -35,7 +35,7 @@ function mainkanChime(): Promise<void> {
 
       const waktuMulai = ctx.currentTime + mulai;
       gain.gain.setValueAtTime(0, waktuMulai);
-      gain.gain.linearRampToValueAtTime(0.4, waktuMulai + 0.02);
+      gain.gain.linearRampToValueAtTime(0.4 * volume, waktuMulai + 0.02);
       gain.gain.linearRampToValueAtTime(0, waktuMulai + durasi);
 
       osc.start(waktuMulai);
@@ -52,7 +52,7 @@ function mainkanChime(): Promise<void> {
 }
 
 /** Ucapkan nomor antrian lewat Web Speech API (Text-to-Speech browser) */
-function ucapkanAntrian(nomorAntrian: string, namaLoket: string) {
+function ucapkanAntrian(nomorAntrian: string, namaLoket: string, volume: number) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel(); // hentikan ucapan sebelumnya kalau masih berjalan
 
@@ -62,13 +62,22 @@ function ucapkanAntrian(nomorAntrian: string, namaLoket: string) {
   const utterance = new SpeechSynthesisUtterance(teks);
   utterance.lang = "id-ID";
   utterance.rate = 0.9;
+  utterance.volume = volume;
   window.speechSynthesis.speak(utterance);
 }
 
 /** Mainkan chime dulu, baru menyusul TTS setelah chime selesai */
-async function umumkanAntrian(nomorAntrian: string, namaLoket: string) {
-  await mainkanChime();
-  ucapkanAntrian(nomorAntrian, namaLoket);
+async function umumkanAntrian(
+  nomorAntrian: string,
+  namaLoket: string,
+  notifAktif: boolean,
+  volumeUtama: number
+) {
+  if (!notifAktif) return;
+
+  const volume = Math.min(100, Math.max(0, volumeUtama)) / 100;
+  await mainkanChime(volume);
+  ucapkanAntrian(nomorAntrian, namaLoket, volume);
 }
 
 // Halaman ini dirender DI DALAM AdminLayout (sidebar gelap + header sudah
@@ -76,8 +85,17 @@ async function umumkanAntrian(nomorAntrian: string, namaLoket: string) {
 export default function AdminLoketPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { layananList, counts, currentServing, loketStatus, panggilSelanjutnya, tutupLoket, bukaLoket, loketError } =
-    useQueue();
+  const {
+    layananList,
+    counts,
+    currentServing,
+    loketStatus,
+    panggilSelanjutnya,
+    tutupLoket,
+    bukaLoket,
+    loketError,
+    pengaturan,
+  } = useQueue();
   const layanan = layananList.find((l) => l.id === id);
 
   if (!layanan && !loketError && layananList.length === 0) {
@@ -121,12 +139,22 @@ export default function AdminLoketPage() {
 
   const handleSelanjutnya = () => {
     panggilSelanjutnya(layanan.id);
-    umumkanAntrian(formatNomor(nomorSaatIni + 1), layanan.namaLoket);
+    void umumkanAntrian(
+      formatNomor(nomorSaatIni + 1),
+      layanan.namaLoket,
+      pengaturan.notifPanggilanAntrean,
+      pengaturan.volumeUtama
+    );
   };
 
   const handlePanggilSuara = () => {
     if (belumAdaAntrian || !nomorAntrianText) return;
-    umumkanAntrian(nomorAntrianText, layanan.namaLoket);
+    void umumkanAntrian(
+      nomorAntrianText,
+      layanan.namaLoket,
+      pengaturan.notifPanggilanAntrean,
+      pengaturan.volumeUtama
+    );
   };
 
   const handleToggleLoket = () => {

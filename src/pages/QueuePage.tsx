@@ -7,6 +7,8 @@ import { useQueue } from "../context/useQueue";
 export default function QueuePage() {
   const { id } = useParams();
   const { layananList, counts, loketError } = useQueue();
+  const ticketRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
   const layanan = layananList.find((l) => l.id === id);
 
   if (!layanan && !loketError && layananList.length === 0) {
@@ -16,9 +18,6 @@ export default function QueuePage() {
       </main>
     );
   }
-
-  const ticketRef = useRef<HTMLDivElement>(null);
-  const [downloading, setDownloading] = useState(false);
 
   if (!layanan) {
     return (

@@ -148,7 +148,7 @@ export interface QueueContextType {
 
   /** Pengaturan sistem: profil instansi, jam operasional, notifikasi suara */
   pengaturan: PengaturanSistem;
-  updatePengaturan: (data: Partial<PengaturanSistem>) => void;
+  updatePengaturan: (data: Partial<PengaturanSistem>) => Promise<void>;
 
   /** Daftar akun admin/petugas yang bisa mengelola sistem */
   akunList: AkunAdmin[];

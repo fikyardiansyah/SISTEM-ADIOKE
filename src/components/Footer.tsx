@@ -1,15 +1,18 @@
+import { useQueue } from "../context/useQueue";
+
 export default function Footer() {
+  const { pengaturan } = useQueue();
+  const nomorTelepon = pengaturan.nomorTelepon.replace(/[^\d+]/g, "");
+
   return (
     <footer className="bg-blue-700 text-white text-center py-10 px-4 mt-auto">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-xl font-bold mb-2">Kecamatan Kuta Selatan</h2>
-        <p className="mt-1 text-sm text-blue-100">Jl. Kampus UNUD, Jimbaran</p>
+        <h2 className="text-xl font-bold mb-2">{pengaturan.namaInstansi}</h2>
+        <p className="mt-1 text-sm text-blue-100">{pengaturan.alamatLengkap}</p>
         <p className="text-sm text-blue-100">
-          <a href="tel:0361704670" className="hover:underline">0361-704670</a>,{' '}
-          <a href="tel:03614725180" className="hover:underline">0361-4725180</a>
+          <a href={`tel:${nomorTelepon}`} className="hover:underline">{pengaturan.nomorTelepon}</a>
         </p>
-        <p className="text-sm text-blue-100">umumkutsel@yahoo.com</p>
-        <p className="text-sm text-blue-100 mb-6">pedas.kutaselatan@gmail.com</p>
+        <p className="text-sm text-blue-100 mb-6">{pengaturan.emailResmi}</p>
 
         {/* Sosial Media Icons (Menggunakan SVG murni, bebas eror) */}
         <div className="flex justify-center items-center gap-4 mb-6">
@@ -44,7 +47,7 @@ export default function Footer() {
 
         </div>
 
-        <p className="text-xs text-blue-200 opacity-90">© Copyright 2026 Kecamatan kuta selatan</p>
+        <p className="text-xs text-blue-200 opacity-90">© Copyright 2026 {pengaturan.namaInstansi}</p>
       </div>
     </footer>
   );

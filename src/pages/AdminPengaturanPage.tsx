@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type SVGProps } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type SVGProps } from "react";
 import { useQueue } from "../context/useQueue";
 import type { JamOperasionalHari } from "../context/QueueContext";
 
@@ -82,6 +82,14 @@ export default function AdminPengaturanPage() {
   // pola yang sama dipakai di AdminLaporanPage (pending vs diterapkan).
   const [draft, setDraft] = useState(pengaturan);
   const [tersimpan, setTersimpan] = useState(false);
+  const [menyimpan, setMenyimpan] = useState(false);
+  const [gagalSimpan, setGagalSimpan] = useState(false);
+
+  useEffect(() => {
+    // Draft harus mengikuti hasil GET async dari context.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(pengaturan);
+  }, [pengaturan]);
 
   const handleUbahLogo = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,10 +108,19 @@ export default function AdminPengaturanPage() {
     }));
   };
 
-  const handleSimpan = () => {
-    updatePengaturan(draft);
-    setTersimpan(true);
-    setTimeout(() => setTersimpan(false), 2500);
+  const handleSimpan = async () => {
+    setMenyimpan(true);
+    setTersimpan(false);
+    setGagalSimpan(false);
+    try {
+      await updatePengaturan(draft);
+      setTersimpan(true);
+      setTimeout(() => setTersimpan(false), 2500);
+    } catch {
+      setGagalSimpan(true);
+    } finally {
+      setMenyimpan(false);
+    }
   };
 
   return (
@@ -123,12 +140,14 @@ export default function AdminPengaturanPage() {
               Perubahan disimpan
             </span>
           )}
+          {gagalSimpan && <span className="text-sm font-medium text-red-600">Gagal menyimpan</span>}
           <button
             type="button"
             onClick={handleSimpan}
+            disabled={menyimpan}
             className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
-            Simpan Perubahan
+            {menyimpan ? "Menyimpan..." : "Simpan Perubahan"}
           </button>
         </div>
       </div>

@@ -82,6 +82,41 @@ interface SurveiApiRow {
   ratings: Record<number, number>;
 }
 
+interface PengaturanApiJam {
+  hari: string;
+  jam_buka: string;
+  jam_tutup: string;
+  aktif: boolean;
+}
+
+interface PengaturanApiResponse extends Omit<PengaturanSistem, "jamOperasional"> {
+  jamOperasional: PengaturanApiJam[];
+}
+
+function mapPengaturanFromApi(data: PengaturanApiResponse): PengaturanSistem {
+  return {
+    ...data,
+    jamOperasional: data.jamOperasional.map((hari) => ({
+      hari: hari.hari,
+      buka: hari.jam_buka,
+      tutup: hari.jam_tutup,
+      aktif: hari.aktif,
+    })),
+  };
+}
+
+function mapPengaturanToApi(data: PengaturanSistem): PengaturanApiResponse {
+  return {
+    ...data,
+    jamOperasional: data.jamOperasional.map((hari) => ({
+      hari: hari.hari,
+      jam_buka: hari.buka,
+      jam_tutup: hari.tutup,
+      aktif: hari.aktif,
+    })),
+  };
+}
+
 export function QueueProvider({ children }: { children: ReactNode }) {
   const [layananList, setLayananList] = useState<Layanan[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -223,29 +258,6 @@ export function QueueProvider({ children }: { children: ReactNode }) {
       .catch((err: Error) => console.error("Gagal memuat survei:", err));
   };
 
-  /** Dipanggil setelah login berhasil (LoginPage/LoginModal), dan sekali saat
-   *  mount kalau ternyata sesi login masih ada (refresh halaman). */
-  const refetchAdminData = () => {
-    muatUlangRiwayat();
-    muatUlangAktivitas();
-    muatUlangRekapHarian();
-    muatUlangSurvei();
-  };
-
-  useEffect(() => {
-    refetchAdminData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const [kategoriList, setKategoriList] = useState<KategoriLayanan[]>(() => {
-    const now = Date.now();
-    return [
-      { nama: "Umum", icon: "tag", deskripsi: "Layanan umum kecamatan yang tidak masuk kategori khusus lainnya.", updatedAt: now },
-      { nama: "Kependudukan", icon: "people", deskripsi: "Layanan administrasi kependudukan seperti pembuatan KTP, KK, Akta Kelahiran, dan surat pindah domisili.", updatedAt: now },
-      { nama: "Perizinan", icon: "building", deskripsi: "Pengurusan berbagai izin usaha mikro, surat keterangan domisili usaha, dan izin mendirikan bangunan skala kecil.", updatedAt: now },
-    ];
-  });
-
   const [pengaturan, setPengaturan] = useState<PengaturanSistem>(() => ({
     namaInstansi: "Kecamatan Kuta Selatan",
     alamatLengkap: "Jl. Raya Kampus Unud No.X, Jimbaran, Kec. Kuta Sel., Kabupaten Badung, Bali",
@@ -265,6 +277,37 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     notifPeringatanSistem: true,
     volumeUtama: 80,
   }));
+
+  const muatPengaturan = () => {
+    apiFetch<PengaturanApiResponse>("/pengaturan")
+      .then((data) => setPengaturan(mapPengaturanFromApi(data)))
+      .catch((err: Error) => console.error("Gagal memuat pengaturan sistem:", err));
+  };
+
+  /** Dipanggil setelah login berhasil (LoginPage/LoginModal), dan sekali saat
+   *  mount kalau ternyata sesi login masih ada (refresh halaman). */
+  const refetchAdminData = () => {
+    muatUlangRiwayat();
+    muatUlangAktivitas();
+    muatUlangRekapHarian();
+    muatUlangSurvei();
+    muatPengaturan();
+  };
+
+  useEffect(() => {
+    muatPengaturan();
+    refetchAdminData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [kategoriList, setKategoriList] = useState<KategoriLayanan[]>(() => {
+    const now = Date.now();
+    return [
+      { nama: "Umum", icon: "tag", deskripsi: "Layanan umum kecamatan yang tidak masuk kategori khusus lainnya.", updatedAt: now },
+      { nama: "Kependudukan", icon: "people", deskripsi: "Layanan administrasi kependudukan seperti pembuatan KTP, KK, Akta Kelahiran, dan surat pindah domisili.", updatedAt: now },
+      { nama: "Perizinan", icon: "building", deskripsi: "Pengurusan berbagai izin usaha mikro, surat keterangan domisili usaha, dan izin mendirikan bangunan skala kecil.", updatedAt: now },
+    ];
+  });
 
   const [akunList, setAkunList] = useState<AkunAdmin[]>(() => {
     const now = Date.now();
@@ -449,9 +492,31 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     muatUlangAktivitas();
   };
 
-  const updatePengaturan = (data: Partial<PengaturanSistem>) => {
-    setPengaturan((prev) => ({ ...prev, ...data }));
-    catatAktivitas("Pengaturan sistem diperbarui");
+  const updatePengaturan = async (data: Partial<PengaturanSistem>) => {
+    const next = { ...pengaturan, ...data };
+    setPengaturan(next);
+
+    const session = getAdminSession();
+    try {
+      if (session) {
+        const saved = await apiFetch<PengaturanApiResponse>(
+          "/pengaturan",
+          {
+            method: "PUT",
+            body: JSON.stringify(mapPengaturanToApi(next)),
+          },
+          session.token
+        );
+        setPengaturan(mapPengaturanFromApi(saved));
+      } else {
+        setPengaturan(next);
+      }
+      catatAktivitas("Pengaturan sistem diperbarui");
+    } catch (err) {
+      console.error("Gagal menyimpan pengaturan sistem:", err);
+      catatAktivitas("Pengaturan sistem gagal disimpan");
+      throw err;
+    }
   };
 
   const tambahAkun = (data: TambahAkunInput) => {

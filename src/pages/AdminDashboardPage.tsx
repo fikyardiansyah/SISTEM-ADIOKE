@@ -155,12 +155,24 @@ export default function AdminDashboardPage() {
               <h2 className="text-xl font-bold text-gray-900">Riwayat Antrian Harian</h2>
               <p className="mt-1 text-sm text-gray-500">Arsip antrean per hari</p>
             </div>
-            <span className="text-sm text-gray-400">{arsipHarian.length} hari tercatat</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={cariTanggal}
+                onChange={(e) => setCariTanggal(e.target.value)}
+                placeholder="Cari tanggal..."
+                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:bg-white"
+                aria-label="Cari tanggal arsip"
+              />
+              <span className="text-sm text-gray-400">{arsipHarianTampil.length} hari</span>
+            </div>
           </div>
 
-          {arsipHarian.length === 0 ? (
+          {arsipHarianTampil.length === 0 ? (
             <p className="py-10 text-center text-sm text-gray-400">
-              Belum ada arsip antrian yang tercatat.
+              {cariTanggal.trim()
+                ? "Tidak ada arsip yang cocok dengan pencarian tanggal ini."
+                : "Belum ada arsip antrian yang tercatat."}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -176,7 +188,7 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {arsipHarian.map((hari, idx) => (
+                  {arsipHarianTampil.map((hari, idx) => (
                     <tr key={hari.startTs} className="border-b border-gray-50 last:border-0">
                       <td className="py-3 pr-3 text-gray-500">{idx + 1}</td>
                       <td className="max-w-[140px] truncate py-3 pr-3 font-semibold text-gray-900" title={hari.label}>

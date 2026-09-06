@@ -96,3 +96,24 @@ export interface RekapHarianRow extends RowDataPacket {
   menunggu: number;
   created_at: string;
 }
+
+export interface PengaturanSistemRow extends RowDataPacket {
+  id: number;
+  nama_instansi: string;
+  alamat_lengkap: string;
+  nomor_telepon: string;
+  email_resmi: string;
+  logo_url: string;
+  notif_panggilan_antrean: number;
+  notif_peringatan_sistem: number;
+  volume_utama: number;
+  updated_at: string;
+}
+
+export interface JamOperasionalRow extends RowDataPacket {
+  id: number;
+  hari: string;
+  jam_buka: string;
+  jam_tutup: string;
+  aktif: number;
+}
