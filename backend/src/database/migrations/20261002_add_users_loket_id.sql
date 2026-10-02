@@ -1,0 +1,2 @@
+ALTER TABLE users
+  ADD COLUMN loket_id VARCHAR(100) NULL AFTER peran;

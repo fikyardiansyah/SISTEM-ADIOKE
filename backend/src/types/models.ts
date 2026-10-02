@@ -64,6 +64,7 @@ export interface UserRow extends RowDataPacket {
   email: string;
   username: string;
   peran: PeranAkun;
+  loket_id: string | null;
   status: StatusAkun;
   login_terakhir: string | null;
   created_at: string;

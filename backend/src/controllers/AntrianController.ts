@@ -123,7 +123,15 @@ export async function getAntrian(req: Request, res: Response) {
   let sql = "SELECT * FROM antrian WHERE 1=1";
   const params: unknown[] = [];
 
-  if (loketId) {
+  if (req.user?.peran === "Petugas") {
+    if (!req.user.loketId) {
+      return res.status(403).json({ success: false, message: "Akun petugas belum ditugaskan ke loket." });
+    }
+    sql += " AND loket_id = ?";
+    params.push(req.user.loketId);
+  }
+
+  if (loketId && req.user?.peran !== "Petugas") {
     sql += " AND loket_id = ?";
     params.push(loketId);
   }

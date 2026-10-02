@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
+import { getAdminSession } from "../lib/auth";
 
 /**
  * Mainkan chime "ding-dong" pendek lewat Web Audio API (disintesis
@@ -85,6 +86,7 @@ async function umumkanAntrian(
 export default function AdminLoketPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isPetugas = getAdminSession()?.user.peran === "Petugas";
   const {
     layananList,
     counts,
@@ -224,18 +226,20 @@ export default function AdminLoketPage() {
 
         {/* Tombol aksi */}
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={handleToggleLoket}
-            className={`flex items-center gap-2 rounded-full border-2 px-6 py-3 text-sm font-bold transition ${
-              sedangBuka
-                ? "border-red-500 text-red-500 hover:bg-red-50"
-                : "border-green-600 text-green-600 hover:bg-green-50"
-            }`}
-          >
-            {sedangBuka ? <IconLockOpen className="h-4 w-4" /> : <IconLockClosed className="h-4 w-4" />}
-            {sedangBuka ? "TUTUP LOKET" : "BUKA LOKET"}
-          </button>
+          {!isPetugas && (
+            <button
+              type="button"
+              onClick={handleToggleLoket}
+              className={`flex items-center gap-2 rounded-full border-2 px-6 py-3 text-sm font-bold transition ${
+                sedangBuka
+                  ? "border-red-500 text-red-500 hover:bg-red-50"
+                  : "border-green-600 text-green-600 hover:bg-green-50"
+              }`}
+            >
+              {sedangBuka ? <IconLockOpen className="h-4 w-4" /> : <IconLockClosed className="h-4 w-4" />}
+              {sedangBuka ? "TUTUP LOKET" : "BUKA LOKET"}
+            </button>
+          )}
 
           <button
             type="button"
@@ -259,7 +263,7 @@ export default function AdminLoketPage() {
         </div>
       </div>
 
-      <div className="mt-6 text-center">
+      {!isPetugas && <div className="mt-6 text-center">
         <button
           type="button"
           onClick={() => navigate("/admin/loket")}
@@ -267,7 +271,7 @@ export default function AdminLoketPage() {
         >
           ← Kembali ke Kelola Layanan Loket
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

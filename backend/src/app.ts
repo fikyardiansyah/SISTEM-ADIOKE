@@ -8,6 +8,7 @@ import aktivitasRoutes from "./routes/AktivitasRoutes.js";
 import rekapHarianRoutes from "./routes/RekapHarianRoutes.js";
 import surveiRoutes from "./routes/SurveiRoutes.js";
 import pengaturanRoutes from "./routes/PengaturanRoutes.js";
+import usersRoutes from "./routes/UsersRoutes.js";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/api/aktivitas", aktivitasRoutes);
 app.use("/api/rekap-harian", rekapHarianRoutes);
 app.use("/api/survei", surveiRoutes);
 app.use("/api/pengaturan", pengaturanRoutes);
+app.use("/api/users", usersRoutes);
 
 // 404 — route tidak dikenal
 app.use((_req, res) => {

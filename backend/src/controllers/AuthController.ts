@@ -94,6 +94,7 @@ export async function login(req: Request, res: Response) {
         email: profil.email,
         username: profil.username,
         peran: profil.peran,
+        loketId: profil.loket_id,
       },
     },
   });
@@ -105,7 +106,7 @@ export async function me(req: Request, res: Response) {
   // diverifikasi DAN profil MySQL-nya ditemukan — jadi di sini tinggal
   // pakai req.user.id, tidak perlu verifikasi ulang.
   const [rows] = await pool.query<UserRow[]>(
-    "SELECT id, nama, email, username, peran, status FROM users WHERE id = ? LIMIT 1",
+    "SELECT id, nama, email, username, peran, loket_id, status FROM users WHERE id = ? LIMIT 1",
     [req.user!.id]
   );
   const user = rows[0];

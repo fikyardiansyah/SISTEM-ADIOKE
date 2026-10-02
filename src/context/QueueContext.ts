@@ -91,6 +91,7 @@ export interface AkunAdmin {
   email: string;
   username: string;
   peran: PeranAkun;
+  loketId?: string | null;
   status: StatusAkun;
   loginTerakhir: number | null; // Date.now() terakhir login, null kalau belum pernah
 }

@@ -11,6 +11,7 @@ export interface AdminSession {
     email: string;
     username: string;
     peran: "Super Admin" | "Admin" | "Petugas";
+    loketId: string | null;
   };
 }
 

@@ -158,7 +158,7 @@ export default function AdminLoketListPage() {
                           src={l.icon}
                           alt={l.nama}
                           className="h-8 w-8 rounded-full border object-cover"
-                        />
+                        />    
                         <span className="font-medium text-gray-800 hover:underline">{l.nama}</span>
                       </Link>
                     </td>

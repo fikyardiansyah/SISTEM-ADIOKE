@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { submitSurvei, getSurvei, hapusSurvei } from "../controllers/SurveiController.js";
-import { requireAuth } from "../middleware/AuthMiddleware.js";
+import { requireAuth, requireRole } from "../middleware/AuthMiddleware.js";
 
 const router = Router();
 
@@ -8,7 +8,7 @@ const router = Router();
 router.post("/", submitSurvei);
 
 // Lihat & kelola hasil survei — hanya admin
-router.get("/", requireAuth, getSurvei);
-router.delete("/:id", requireAuth, hapusSurvei);
+router.get("/", requireAuth, requireRole("Super Admin", "Admin"), getSurvei);
+router.delete("/:id", requireAuth, requireRole("Super Admin", "Admin"), hapusSurvei);
 
 export default router;

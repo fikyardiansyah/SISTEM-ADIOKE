@@ -1,5 +1,5 @@
 import { useState, type SVGProps } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
 import LoginModal from "../components/LoginModal";
 import { getAdminSession, clearAdminSession, type AdminSession } from "../lib/auth";
@@ -261,6 +261,8 @@ export default function AdminLayout() {
   const location = useLocation();
   const [session, setSession] = useState<AdminSession | null>(() => getAdminSession());
   const { aktivitasLog, refetchAdminData } = useQueue();
+  const isPetugas = session?.user.peran === "Petugas";
+  const isSuperAdmin = session?.user.peran === "Super Admin";
 
   // Dropdown "Layanan Loket" di sidebar — otomatis terbuka kalau sedang
   // berada di salah satu halamannya (/admin/loket atau /admin/loket/tambah),
@@ -327,6 +329,25 @@ export default function AdminLayout() {
     );
   }
 
+  if (isPetugas) {
+    if (!session.user.loketId) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-center">
+          <p className="max-w-md text-gray-700">Akun petugas belum ditugaskan ke loket. Hubungi Super Admin.</p>
+        </div>
+      );
+    }
+    const loketTugasPath = `/admin/loket/${encodeURIComponent(session.user.loketId)}`;
+    if (location.pathname !== loketTugasPath) return <Navigate to={loketTugasPath} replace />;
+  }
+
+  if (
+    session.user.peran === "Admin" &&
+    !/^\/admin\/(dashboard|loket(?:\/[^/]+)?|kategori|survei|laporan|profil|bantuan)$/.test(location.pathname)
+  ) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Overlay gelap di belakang sidebar — hanya muncul di mobile/tablet
@@ -381,8 +402,24 @@ export default function AdminLayout() {
           </div>
 
           <nav className="mt-2 flex flex-col gap-1 px-3">
-            {menuUtama.map((item) => {
+            {menuUtama
+              .filter((item) => !isPetugas || item.label === "Layanan Loket")
+              .map((item) => {
               const children = "children" in item ? item.children : undefined;
+
+              if (isPetugas) {
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={`/admin/loket/${encodeURIComponent(session.user.loketId!)}`}
+                    onClick={closeMobileSidebar}
+                    className={linkClass}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && "Panggil Antrean"}
+                  </NavLink>
+                );
+              }
 
               if (!children) {
                 return (
@@ -466,13 +503,13 @@ export default function AdminLayout() {
               );
             })}
 
-            {!collapsed && (
+            {isSuperAdmin && !collapsed && (
               <p className="mt-6 mb-1 px-4 text-xs font-semibold uppercase tracking-wide text-blue-300">
                 Pengaturan
               </p>
             )}
-            {collapsed && <div className="mt-4 border-t border-blue-800" />}
-            {menuPengaturan.map((item) => (
+            {isSuperAdmin && collapsed && <div className="mt-4 border-t border-blue-800" />}
+            {isSuperAdmin && menuPengaturan.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

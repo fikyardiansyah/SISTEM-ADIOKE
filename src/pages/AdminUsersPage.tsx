@@ -1,7 +1,8 @@
-import { useMemo, useState, type FormEvent, type SVGProps } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type SVGProps } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
-import type { AkunAdmin, PeranAkun, StatusAkun, TambahAkunInput } from "../context/QueueContext";
+import type { AkunAdmin, PeranAkun, StatusAkun } from "../context/QueueContext";
+import { ambilAkun, hapusAkunServer, ubahAkun, type AkunInput } from "../lib/users";
 
 type IconProps = SVGProps<SVGSVGElement>;
 const baseIconProps = {
@@ -129,21 +130,23 @@ const PAGE_SIZE = 8;
 
 interface AkunModalProps {
   awal?: AkunAdmin;
+  layanan: { id: string; namaLoket: string }[];
   onClose: () => void;
-  onSubmit: (data: TambahAkunInput) => void;
+  onSubmit: (data: AkunInput) => void;
 }
 
-function AkunModal({ awal, onClose, onSubmit }: AkunModalProps) {
+function AkunModal({ awal, layanan, onClose, onSubmit }: AkunModalProps) {
   const [nama, setNama] = useState(awal?.nama ?? "");
   const [email, setEmail] = useState(awal?.email ?? "");
   const [username, setUsername] = useState(awal?.username ?? "");
   const [peran, setPeran] = useState<PeranAkun>(awal?.peran ?? "Petugas");
   const [status, setStatus] = useState<StatusAkun>(awal?.status ?? "Aktif");
+  const [loketId, setLoketId] = useState(awal?.loketId ?? "");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!nama.trim() || !email.trim() || !username.trim()) return;
-    onSubmit({ nama: nama.trim(), email: email.trim(), username: username.trim(), peran, status });
+    if (!nama.trim() || !email.trim() || !username.trim() || (peran === "Petugas" && !loketId)) return;
+    onSubmit({ nama: nama.trim(), email: email.trim(), username: username.trim(), peran, status, loketId: peran === "Petugas" ? loketId : null });
   };
 
   return (
@@ -181,6 +184,21 @@ function AkunModal({ awal, onClose, onSubmit }: AkunModalProps) {
               autoFocus
             />
           </div>
+
+          {peran === "Petugas" && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Loket Tugas</label>
+              <select
+                value={loketId}
+                onChange={(e) => setLoketId(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="" disabled>Pilih satu loket</option>
+                {layanan.map((item) => <option key={item.id} value={item.id}>{item.namaLoket}</option>)}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
@@ -248,10 +266,39 @@ function AkunModal({ awal, onClose, onSubmit }: AkunModalProps) {
 
 export default function AdminUsersPage() {
   const navigate = useNavigate();
-  const { akunList, updateAkun, hapusAkun } = useQueue();
+  const { layananList } = useQueue();
+  const [akunList, setAkunList] = useState<AkunAdmin[]>([]);
+  const [memuatAkun, setMemuatAkun] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [akunDiedit, setAkunDiedit] = useState<AkunAdmin | null>(null);
+
+  const muatAkun = async () => {
+    try {
+      setAkunList(await ambilAkun());
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Daftar akun gagal dimuat.");
+    } finally {
+      setMemuatAkun(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    ambilAkun()
+      .then((rows) => {
+        if (active) setAkunList(rows);
+      })
+      .catch((err: Error) => {
+        if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setMemuatAkun(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   const totalPengguna = akunList.length;
   const adminAktif = akunList.filter(
@@ -274,15 +321,22 @@ export default function AdminUsersPage() {
     halamanAman * PAGE_SIZE
   );
 
-  const handleEdit = (data: TambahAkunInput) => {
+  const handleEdit = async (data: AkunInput) => {
     if (!akunDiedit) return;
-    updateAkun(akunDiedit.id, data);
-    setAkunDiedit(null);
+    try {
+      await ubahAkun(akunDiedit.id, data);
+      await muatAkun();
+      setAkunDiedit(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Akun gagal diperbarui.");
+    }
   };
 
   const handleHapus = (akun: AkunAdmin) => {
     const yakin = window.confirm(`Hapus akun "${akun.nama}" (${akun.email})?`);
-    if (yakin) hapusAkun(akun.id);
+    if (yakin) {
+      hapusAkunServer(akun.id).then(muatAkun).catch((err: Error) => setError(err.message));
+    }
   };
 
   return (
@@ -301,6 +355,8 @@ export default function AdminUsersPage() {
           Tambah Akun
         </button>
       </div>
+
+      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       {/* Kartu statistik */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -360,15 +416,18 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {akunDitampilkan.length === 0 ? (
+        {memuatAkun ? (
+          <p className="py-14 text-center text-sm text-gray-400">Memuat akun...</p>
+        ) : akunDitampilkan.length === 0 ? (
           <p className="py-14 text-center text-sm text-gray-400">Tidak ada akun yang cocok.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-gray-500">
                   <th className="py-2 pr-4 font-medium">Nama Pengguna</th>
                   <th className="py-2 pr-4 font-medium">Peran</th>
+                  <th className="py-2 pr-4 font-medium">Loket Tugas</th>
                   <th className="py-2 pr-4 font-medium">Status</th>
                   <th className="py-2 pr-4 font-medium">Login Terakhir</th>
                   <th className="py-2 pr-4 font-medium text-right">Aksi</th>
@@ -390,6 +449,9 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="py-3 pr-4">
                       <BadgePeran peran={akun.peran} />
+                    </td>
+                    <td className="py-3 pr-4 text-gray-600">
+                      {layananList.find((item) => item.id === akun.loketId)?.namaLoket ?? "-"}
                     </td>
                     <td className="py-3 pr-4">
                       <BadgeStatus status={akun.status} />
@@ -469,7 +531,7 @@ export default function AdminUsersPage() {
       </div>
 
       {akunDiedit && (
-        <AkunModal awal={akunDiedit} onClose={() => setAkunDiedit(null)} onSubmit={handleEdit} />
+        <AkunModal awal={akunDiedit} layanan={layananList} onClose={() => setAkunDiedit(null)} onSubmit={handleEdit} />
       )}
     </div>
   );

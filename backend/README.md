@@ -24,6 +24,13 @@ mysql -u root -p < src/database/schema.sql
 mysql -u root -p < src/database/seed.sql
 ```
 
+Untuk database yang sudah berjalan, tambahkan kolom penugasan loket Petugas
+satu kali sebelum menjalankan backend versi ini:
+
+```bash
+mysql -u root -p antrean_adioke < src/database/migrations/20261002_add_users_loket_id.sql
+```
+
 Atau kalau lebih nyaman pakai HeidiSQL/phpMyAdmin bawaan Laragon, tinggal buka
 lalu jalankan isi `schema.sql`, lanjut `seed.sql`.
 
@@ -42,7 +49,7 @@ dicoba tervalidasi.
 | `survei`              | Submission survei kepuasan (nama opsional, saran)                 |
 | `survei_rating`       | Rating per pertanyaan untuk satu survei (relasi 1-ke-banyak)      |
 | `aktivitas_log`       | Feed "Aktivitas Terbaru" di dashboard admin                       |
-| `users`               | Profil admin (nama, peran, status) — **bukan** password           |
+| `users`               | Profil pengguna (nama, peran, status, loket tugas) — **bukan** password |
 | `pengaturan_sistem`   | Satu baris setting global (nama instansi, notifikasi, dst)        |
 | `jam_operasional`     | Jam buka/tutup per hari                                            |
 | `v_ringkasan_loket`   | VIEW: total/dilayani/menunggu per loket (siap pakai, tidak perlu JOIN manual di controller) |

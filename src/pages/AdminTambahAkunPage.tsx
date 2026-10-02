@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
 import type { PeranAkun } from "../context/QueueContext";
+import { buatAkun } from "../lib/users";
 
 const PERAN_OPSI: PeranAkun[] = ["Super Admin", "Admin", "Petugas"];
 
@@ -45,7 +46,7 @@ function IconSave(props: React.SVGProps<SVGSVGElement>) {
 
 export default function AdminTambahAkunPage() {
   const navigate = useNavigate();
-  const { tambahAkun, akunList } = useQueue();
+  const { layananList } = useQueue();
 
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
@@ -57,16 +58,19 @@ export default function AdminTambahAkunPage() {
   const [showKonfirmasi, setShowKonfirmasi] = useState(false);
   const [statusAktif, setStatusAktif] = useState(true);
   const [error, setError] = useState("");
+  const [loketId, setLoketId] = useState("");
+  const [menyimpan, setMenyimpan] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError("");
 
     if (!nama.trim() || !email.trim() || !username.trim() || !peran) {
       setError("Nama, email, username, dan peran wajib diisi.");
       return;
     }
-    if (akunList.some((a) => a.username.toLowerCase() === username.trim().toLowerCase())) {
-      setError("Username sudah dipakai akun lain, silakan pilih yang lain.");
+    if (peran === "Petugas" && !loketId) {
+      setError("Pilih loket tugas untuk akun Petugas.");
       return;
     }
     if (password.length < 8) {
@@ -78,19 +82,23 @@ export default function AdminTambahAkunPage() {
       return;
     }
 
-    // Catatan: kata sandi hanya divalidasi di sini (cocok & minimal 8 karakter)
-    // lalu TIDAK ikut disimpan ke context — sistem ini belum punya backend
-    // autentikasi sungguhan, jadi menyimpan password di state React saja
-    // tidak berguna dan berisiko menyesatkan (seolah-olah sudah aman).
-    tambahAkun({
-      nama: nama.trim(),
-      email: email.trim(),
-      username: username.trim(),
-      peran,
-      status: statusAktif ? "Aktif" : "Tidak Aktif",
-    });
-
-    navigate("/admin/users");
+    setMenyimpan(true);
+    try {
+      await buatAkun({
+        nama: nama.trim(),
+        email: email.trim(),
+        username: username.trim(),
+        peran,
+        status: statusAktif ? "Aktif" : "Tidak Aktif",
+        loketId: peran === "Petugas" ? loketId : null,
+        password,
+      });
+      navigate("/admin/users");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Akun gagal dibuat.");
+    } finally {
+      setMenyimpan(false);
+    }
   };
 
   return (
@@ -139,6 +147,21 @@ export default function AdminTambahAkunPage() {
             />
           </div>
         </div>
+
+        {peran === "Petugas" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-800">Loket Tugas</label>
+            <select
+              value={loketId}
+              onChange={(e) => setLoketId(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="" disabled>Pilih satu loket</option>
+              {layananList.map((item) => <option key={item.id} value={item.id}>{item.namaLoket}</option>)}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
@@ -251,10 +274,11 @@ export default function AdminTambahAkunPage() {
           </button>
           <button
             type="submit"
-            className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            disabled={menyimpan}
+            className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
           >
             <IconSave className="h-4 w-4" />
-            Simpan
+            {menyimpan ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
       </form>

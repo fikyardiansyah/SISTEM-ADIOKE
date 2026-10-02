@@ -8,6 +8,7 @@ export interface AuthPayload {
   supabaseUid: string;
   username: string;
   peran: string;
+  loketId: string | null;
 }
 
 // Perluas tipe Request Express supaya req.user dikenali TypeScript di controller
@@ -46,7 +47,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 
   const [rows] = await pool.query<UserRow[]>(
-    "SELECT id, username, peran, status FROM users WHERE supabase_uid = ? LIMIT 1",
+    "SELECT id, username, peran, status, loket_id FROM users WHERE supabase_uid = ? LIMIT 1",
     [data.user.id]
   );
   const profil = rows[0];
@@ -66,6 +67,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     supabaseUid: data.user.id,
     username: profil.username,
     peran: profil.peran,
+    loketId: profil.loket_id,
   };
   next();
 }
@@ -79,4 +81,15 @@ export function requireRole(...peranDiizinkan: string[]) {
     }
     next();
   };
+}
+
+/** Membatasi petugas ke loket yang ditugaskan pada profilnya. */
+export function requireLoketAccess(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.peran === "Petugas" && req.user.loketId !== req.params.loketId) {
+    return res.status(403).json({ success: false, message: "Anda hanya dapat mengelola antrean loket tugas Anda." });
+  }
+  if (req.user?.peran === "Petugas" && !req.user.loketId) {
+    return res.status(403).json({ success: false, message: "Akun petugas belum ditugaskan ke loket." });
+  }
+  next();
 }

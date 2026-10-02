@@ -195,7 +195,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
 
   const muatUlangAktivitas = () => {
     const session = getAdminSession();
-    if (!session) return;
+    if (!session || session.user.peran === "Petugas") return;
     apiFetch<AktivitasApiRow[]>("/aktivitas", {}, session.token)
       .then((rows) => {
         setAktivitasLog(
@@ -219,7 +219,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
    *  setiap kali admin reset antrean. */
   const muatUlangRekapHarian = () => {
     const session = getAdminSession();
-    if (!session) return;
+    if (!session || session.user.peran === "Petugas") return;
     apiFetch<RekapApiRow[]>("/rekap-harian", {}, session.token)
       .then((rows) => {
         setRekapHarian(
@@ -242,7 +242,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
    *  lewat refetchAdminData, sama seperti riwayat/aktivitas/rekap harian. */
   const muatUlangSurvei = () => {
     const session = getAdminSession();
-    if (!session) return;
+    if (!session || session.user.peran === "Petugas") return;
     apiFetch<SurveiApiRow[]>("/survei", {}, session.token)
       .then((rows) => {
         setSurveiList(
