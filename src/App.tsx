@@ -36,8 +36,9 @@ function App() {
   // Halaman login penuh (split-screen) punya branding sendiri, jadi Navbar
   // dan Footer publik disembunyikan di sini juga.
   const isLoginRoute = location.pathname === "/login";
+  const isDisplayRoute = location.pathname === "/display";
 
-  const hideNavbarFooter = isAdminPanelRoute || isLoginRoute;
+  const hideNavbarFooter = isAdminPanelRoute || isLoginRoute || isDisplayRoute;
 
   return (
     <>
