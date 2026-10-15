@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import type { RowDataPacket } from "mysql2";
 import { pool } from "../config/db.js";
 import { supabaseAdmin } from "../config/supabaseClient.js";
 import type { UserRow } from "../types/models.js";
@@ -112,4 +113,144 @@ export async function me(req: Request, res: Response) {
   const user = rows[0];
   if (!user) return res.status(404).json({ success: false, message: "Akun tidak ditemukan." });
   res.json({ success: true, data: user });
+}
+
+export async function getProfile(req: Request, res: Response) {
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT nama, email, username, peran, nip, nomor_telepon, foto_profil FROM users WHERE id = ? LIMIT 1",
+    [req.user!.id]
+  );
+  const user = rows[0];
+  if (!user) return res.status(404).json({ success: false, message: "Akun tidak ditemukan." });
+  res.json({
+    success: true,
+    data: {
+      nama: user.nama,
+      email: user.email,
+      username: user.username,
+      peran: user.peran,
+      nip: user.nip,
+      nomorTelepon: user.nomor_telepon,
+      fotoProfil: user.foto_profil,
+    },
+  });
+}
+
+export async function updateProfile(req: Request, res: Response) {
+  const payload = req.body as {
+    nama?: unknown;
+    email?: unknown;
+    nip?: unknown;
+    nomorTelepon?: unknown;
+    fotoProfil?: unknown;
+  };
+  const nama = typeof payload.nama === "string" ? payload.nama.trim() : "";
+  const email = typeof payload.email === "string" ? payload.email.trim() : "";
+  const nip = typeof payload.nip === "string" ? payload.nip.trim() : "";
+  const nomorTelepon = typeof payload.nomorTelepon === "string" ? payload.nomorTelepon.trim() : "";
+  const fotoProfil = payload.fotoProfil;
+
+  if (!nama || nama.length > 150) {
+    return res.status(400).json({ success: false, message: "Nama wajib diisi dan maksimal 150 karakter." });
+  }
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, message: "Format email tidak valid." });
+  }
+  if (nip.length > 30 || nomorTelepon.length > 30) {
+    return res.status(400).json({ success: false, message: "NIP dan nomor telepon maksimal 30 karakter." });
+  }
+  if (
+    fotoProfil !== undefined &&
+    fotoProfil !== null &&
+    (typeof fotoProfil !== "string" ||
+      !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(fotoProfil) ||
+      Buffer.byteLength(fotoProfil, "utf8") > 700_000)
+  ) {
+    return res.status(400).json({ success: false, message: "Foto profil tidak valid atau terlalu besar. Pilih ulang foto." });
+  }
+
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT id, supabase_uid, email, foto_profil FROM users WHERE id = ? LIMIT 1",
+    [req.user!.id]
+  );
+  const user = rows[0];
+  if (!user) return res.status(404).json({ success: false, message: "Akun tidak ditemukan." });
+
+  if (email !== user.email) {
+    const [duplicate] = await pool.query<RowDataPacket[]>(
+      "SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1",
+      [email, user.id]
+    );
+    if (duplicate.length) return res.status(409).json({ success: false, message: "Email sudah digunakan akun lain." });
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.supabase_uid, {
+      email,
+      email_confirm: true,
+      user_metadata: { nama },
+    });
+    if (error) return res.status(400).json({ success: false, message: error.message });
+  } else {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.supabase_uid, {
+      user_metadata: { nama },
+    });
+    if (error) return res.status(400).json({ success: false, message: error.message });
+  }
+
+  await pool.query(
+    `UPDATE users
+     SET nama = ?, email = ?, nip = ?, nomor_telepon = ?, foto_profil = ?
+     WHERE id = ?`,
+    [
+      nama,
+      email,
+      nip || null,
+      nomorTelepon || null,
+      fotoProfil === undefined ? user.foto_profil : fotoProfil,
+      user.id,
+    ]
+  );
+
+  res.json({
+    success: true,
+    message: "Profil berhasil diperbarui.",
+    data: {
+      nama,
+      email,
+      username: req.user!.username,
+      peran: req.user!.peran,
+      nip: nip || null,
+      nomorTelepon: nomorTelepon || null,
+      fotoProfil: fotoProfil === undefined ? user.foto_profil : fotoProfil,
+    },
+  });
+}
+
+export async function changePassword(req: Request, res: Response) {
+  const payload = req.body as { passwordSaatIni?: unknown; passwordBaru?: unknown };
+  if (typeof payload.passwordSaatIni !== "string" || !payload.passwordSaatIni) {
+    return res.status(400).json({ success: false, message: "Password saat ini wajib diisi." });
+  }
+  if (typeof payload.passwordBaru !== "string" || payload.passwordBaru.length < 8) {
+    return res.status(400).json({ success: false, message: "Password baru minimal 8 karakter." });
+  }
+
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT supabase_uid, email FROM users WHERE id = ? LIMIT 1",
+    [req.user!.id]
+  );
+  const user = rows[0];
+  if (!user) return res.status(404).json({ success: false, message: "Akun tidak ditemukan." });
+
+  const { error: verifyError } = await supabaseAdmin.auth.signInWithPassword({
+    email: user.email,
+    password: payload.passwordSaatIni,
+  });
+  if (verifyError) return res.status(400).json({ success: false, message: "Password saat ini tidak sesuai." });
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(user.supabase_uid, {
+    password: payload.passwordBaru,
+  });
+  if (error) return res.status(400).json({ success: false, message: error.message });
+
+  res.json({ success: true, message: "Password berhasil diperbarui." });
 }

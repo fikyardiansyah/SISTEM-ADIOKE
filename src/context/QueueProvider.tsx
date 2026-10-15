@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Layanan } from "../data/layanan";
 import { apiFetch } from "../lib/api";
 import { getAdminSession } from "../lib/auth";
@@ -14,6 +14,7 @@ import {
   type AkunAdmin,
   type TambahAkunInput,
   type SurveiSubmission,
+  type SubmitSurveiInput,
   type RekapHarian,
 } from "./QueueContext";
 
@@ -77,6 +78,7 @@ interface RekapApiRow {
 interface SurveiApiRow {
   id: string;
   nama: string | null;
+  jenis_layanan: string | null;
   saran: string | null;
   created_at: string;
   ratings: Record<number, number>;
@@ -128,7 +130,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
   // pertama kali dipasang (root App). Kalau nanti ada aksi yang mengubah
   // data loket di server (tambah loket, dst — belum disambungkan di langkah
   // ini), panggil `muatUlangLayanan()` lagi supaya state di sini ikut sinkron.
-  const muatUlangLayanan = () => {
+  const muatUlangLayanan = useCallback(() => {
     apiFetch<LayananApiRow[]>("/layanan")
       .then((rows) => {
         setLayananList(
@@ -153,11 +155,11 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         console.error("Gagal memuat daftar layanan dari server:", err);
         setLoketError(err.message);
       });
-  };
+  }, []);
 
   useEffect(() => {
     muatUlangLayanan();
-  }, []);
+  }, [muatUlangLayanan]);
 
   // Polling ringan setiap 30 detik — memastikan tampilan counts (jumlah
   // antrean) di QueuePage (pengunjung) dan AdminPortalPage selalu sinkron
@@ -167,7 +169,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
       muatUlangLayanan();
     }, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [muatUlangLayanan]);
 
   const [riwayatAntrian, setRiwayatAntrian] = useState<AntrianEvent[]>([]);
   const [aktivitasLog, setAktivitasLog] = useState<AktivitasLog[]>([]);
@@ -249,6 +251,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
           rows.map((r) => ({
             id: r.id,
             nama: r.nama ?? undefined,
+            jenisLayanan: r.jenis_layanan ?? undefined,
             ratings: r.ratings,
             saran: r.saran ?? undefined,
             timestamp: new Date(r.created_at).getTime(),
@@ -539,15 +542,13 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     catatAktivitas("Akun dihapus", nama);
   };
 
-  // SUDAH TERSAMBUNG KE BACKEND — POST /api/survei, publik (warga belum
-  // login saat mengisi survei). Tidak perlu refetch surveiList di sini
-  // karena warga tidak lihat dashboard admin; admin yang login akan lihat
-  // respons baru ini lewat refetchAdminData berikutnya.
-  const submitSurvei = async (ratings: Record<number, number>, saran?: string, nama?: string) => {
+  // POST /api/survei bersifat publik karena warga tidak perlu login.
+  const submitSurvei = async (input: SubmitSurveiInput) => {
     await apiFetch("/survei", {
       method: "POST",
-      body: JSON.stringify({ ratings, saran, nama }),
+      body: JSON.stringify(input),
     });
+    if (getAdminSession()) muatUlangSurvei();
   };
 
   const hapusSurvei = (id: string) => {
@@ -570,6 +571,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         loketStatus,
         loketError,
         refetchAdminData,
+        refetchLayanan: muatUlangLayanan,
         riwayatAntrian,
         kategoriList,
         aktivitasLog,

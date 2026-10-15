@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent, type SVGProps } from "rea
 import { useNavigate } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
 import type { AkunAdmin, PeranAkun, StatusAkun } from "../context/QueueContext";
-import { ambilAkun, hapusAkunServer, ubahAkun, type AkunInput } from "../lib/users";
+import {
+  ambilAkun,
+  aturUlangPasswordAkun,
+  hapusAkunServer,
+  ubahAkun,
+  type AkunInput,
+} from "../lib/users";
 
 type IconProps = SVGProps<SVGSVGElement>;
 const baseIconProps = {
@@ -79,6 +85,14 @@ function IconClose(props: IconProps) {
     </svg>
   );
 }
+function IconKey(props: IconProps) {
+  return (
+    <svg {...baseIconProps} {...props}>
+      <circle cx="8" cy="15" r="5" />
+      <path d="m11.5 11.5 9-9M17 6l3 3M14 9l3 3" />
+    </svg>
+  );
+}
 
 function inisial(nama: string) {
   return nama
@@ -142,6 +156,11 @@ function AkunModal({ awal, layanan, onClose, onSubmit }: AkunModalProps) {
   const [peran, setPeran] = useState<PeranAkun>(awal?.peran ?? "Petugas");
   const [status, setStatus] = useState<StatusAkun>(awal?.status ?? "Aktif");
   const [loketId, setLoketId] = useState(awal?.loketId ?? "");
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -149,13 +168,41 @@ function AkunModal({ awal, layanan, onClose, onSubmit }: AkunModalProps) {
     onSubmit({ nama: nama.trim(), email: email.trim(), username: username.trim(), peran, status, loketId: peran === "Petugas" ? loketId : null });
   };
 
+  const handleResetPassword = async () => {
+    if (!awal || newPassword.length < 8) {
+      setResetPasswordError("Kata sandi minimal 8 karakter.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetPasswordError("Konfirmasi kata sandi tidak sama.");
+      return;
+    }
+    if (!window.confirm(`Ubah password akun ${awal.nama}? Password saat ini langsung diganti.`)) return;
+
+    setResettingPassword(true);
+    setResetPasswordError("");
+    setPasswordUpdated(false);
+    try {
+      await aturUlangPasswordAkun(awal.id, newPassword);
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordUpdated(true);
+    } catch (err) {
+      setResetPasswordError(err instanceof Error ? err.message : "Password gagal diatur ulang.");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={onClose}
+      onClick={() => {
+        if (!resettingPassword) onClose();
+      }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -165,6 +212,7 @@ function AkunModal({ awal, layanan, onClose, onSubmit }: AkunModalProps) {
           <button
             type="button"
             onClick={onClose}
+            disabled={resettingPassword}
             className="text-gray-400 transition hover:text-gray-600"
             aria-label="Tutup"
           >
@@ -252,8 +300,73 @@ function AkunModal({ awal, layanan, onClose, onSubmit }: AkunModalProps) {
             </select>
           </div>
 
+          {awal && (
+            <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-700">
+                  <IconKey className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900">Ubah password akun</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                    Berlaku untuk semua role. Password lama langsung tidak berlaku.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Password baru
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        minLength={8}
+                        autoComplete="new-password"
+                        required
+                        disabled={resettingPassword}
+                        placeholder="Minimal 8 karakter"
+                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-60"
+                      />
+                    </label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Konfirmasi password baru
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        minLength={8}
+                        autoComplete="new-password"
+                        required
+                        disabled={resettingPassword}
+                        placeholder="Ulangi password baru"
+                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-60"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void handleResetPassword()}
+                      disabled={resettingPassword}
+                      className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {resettingPassword ? "Menyimpan password..." : "Simpan password baru"}
+                    </button>
+                  </div>
+                  {resetPasswordError && (
+                    <p className="mt-2 text-xs font-medium text-red-700" role="alert">
+                      {resetPasswordError}
+                    </p>
+                  )}
+                  {passwordUpdated && (
+                    <p className="mt-2 text-xs font-medium text-emerald-800" role="status">
+                      Password berhasil diubah.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           <button
             type="submit"
+            disabled={resettingPassword}
             className="mt-1 w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             {awal ? "Simpan Perubahan" : "Tambah Akun"}

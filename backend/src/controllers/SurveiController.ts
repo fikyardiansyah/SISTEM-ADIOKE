@@ -2,29 +2,55 @@ import type { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { pool } from "../config/db.js";
 import type { SurveiRow, SurveiRatingRow } from "../types/models.js";
-import { catatAktivitas } from "./AktivitasController.js";
 
 /** POST /api/survei — publik, warga kirim jawaban Survei Kepuasan Masyarakat */
 export async function submitSurvei(req: Request, res: Response) {
-  const { nama, ratings, saran } = req.body as {
+  const { nama, usia, pekerjaan, pendidikan, jenisKelamin, jenisLayanan, ratings, saran } = req.body as {
     nama?: string;
+    usia?: number;
+    pekerjaan?: string;
+    pendidikan?: string;
+    jenisKelamin?: "Laki-laki" | "Perempuan";
+    jenisLayanan?: string;
     ratings?: Record<string, number>; // key = id pertanyaan, dikirim sebagai string dari JSON
     saran?: string;
   };
 
-  if (!ratings || Object.keys(ratings).length === 0) {
+  if (!Number.isInteger(usia) || usia! < 1 || usia! > 120) {
+    return res.status(400).json({ success: false, message: "Usia harus berupa angka antara 1-120." });
+  }
+  if (!pekerjaan?.trim() || !pendidikan?.trim() || !jenisLayanan?.trim()) {
+    return res.status(400).json({ success: false, message: "Profil responden dan jenis layanan wajib diisi." });
+  }
+  if (jenisKelamin !== "Laki-laki" && jenisKelamin !== "Perempuan") {
+    return res.status(400).json({ success: false, message: "Jenis kelamin tidak valid." });
+  }
+  if (!ratings || typeof ratings !== "object" || Array.isArray(ratings)) {
     return res.status(400).json({ success: false, message: "Rating wajib diisi." });
   }
-
-  // Validasi dulu di sini (walau CHECK constraint di DB juga menjaga ini)
-  // supaya pesan errornya jelas, bukan 500 mentah dari MySQL.
+  const questionIds = Array.from({ length: 9 }, (_, index) => String(index + 1));
+  if (
+    Object.keys(ratings).length !== questionIds.length ||
+    questionIds.some((questionId) => !Object.hasOwn(ratings, questionId))
+  ) {
+    return res.status(400).json({ success: false, message: "Semua 9 unsur pelayanan wajib diberi penilaian." });
+  }
   for (const [pertanyaanId, nilai] of Object.entries(ratings)) {
-    if (!Number.isInteger(nilai) || nilai < 1 || nilai > 5) {
+    if (!questionIds.includes(pertanyaanId) || !Number.isInteger(nilai) || nilai < 1 || nilai > 4) {
       return res.status(400).json({
         success: false,
-        message: `Rating untuk pertanyaan ${pertanyaanId} harus berupa angka 1-5.`,
+        message: `Rating untuk unsur ${pertanyaanId} harus berupa angka 1-4.`,
       });
     }
+  }
+  if (saran !== undefined && typeof saran !== "string") {
+    return res.status(400).json({ success: false, message: "Saran harus berupa teks." });
+  }
+  if (nama !== undefined && typeof nama !== "string") {
+    return res.status(400).json({ success: false, message: "Nama harus berupa teks." });
+  }
+  if (nama && nama.trim().length > 150) {
+    return res.status(400).json({ success: false, message: "Nama maksimal 150 karakter." });
   }
 
   const id = randomUUID();
@@ -32,11 +58,21 @@ export async function submitSurvei(req: Request, res: Response) {
   try {
     await conn.beginTransaction();
 
-    await conn.query("INSERT INTO survei (id, nama, saran, created_at) VALUES (?, ?, ?, NOW())", [
-      id,
-      nama?.trim() || null,
-      saran?.trim() || null,
-    ]);
+    await conn.query(
+      `INSERT INTO survei
+        (id, nama, usia, pekerjaan, pendidikan, jenis_kelamin, jenis_layanan, saran, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        id,
+        nama?.trim() || null,
+        usia,
+        pekerjaan.trim(),
+        pendidikan.trim(),
+        jenisKelamin,
+        jenisLayanan.trim(),
+        saran?.trim() || null,
+      ]
+    );
 
     for (const [pertanyaanId, nilai] of Object.entries(ratings)) {
       await conn.query(
@@ -45,9 +81,12 @@ export async function submitSurvei(req: Request, res: Response) {
       );
     }
 
-    await conn.commit();
+    await conn.query(
+      "INSERT INTO aktivitas_log (id, pesan, detail, waktu) VALUES (?, ?, ?, NOW())",
+      [randomUUID(), "Survei kepuasan baru diterima dari warga", null]
+    );
 
-    await catatAktivitas("Survei kepuasan baru diterima dari warga");
+    await conn.commit();
 
     res.status(201).json({ success: true, data: { id } });
   } catch (err) {
@@ -74,6 +113,7 @@ export async function getSurvei(_req: Request, res: Response) {
   const data = surveiRows.map((s) => ({
     id: s.id,
     nama: s.nama,
+    jenis_layanan: s.jenis_layanan,
     saran: s.saran,
     created_at: s.created_at,
     ratings: ratingBySurvei.get(s.id) ?? {},

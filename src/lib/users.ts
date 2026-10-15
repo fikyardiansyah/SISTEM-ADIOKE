@@ -56,6 +56,14 @@ export async function ubahAkun(id: string, payload: AkunInput) {
   await apiFetch(`/users/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }, tokenWajib());
 }
 
+export async function aturUlangPasswordAkun(id: string, password: string): Promise<void> {
+  await apiFetch(
+    `/users/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", body: JSON.stringify({ password }) },
+    tokenWajib()
+  );
+}
+
 export async function hapusAkunServer(id: string) {
   await apiFetch(`/users/${encodeURIComponent(id)}`, { method: "DELETE" }, tokenWajib());
 }

@@ -1,8 +1,14 @@
-import { useState, type SVGProps } from "react";
+import { useEffect, useState, type SVGProps } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQueue } from "../context/useQueue";
 import LoginModal from "../components/LoginModal";
-import { getAdminSession, clearAdminSession, type AdminSession } from "../lib/auth";
+import {
+  ambilProfilAdmin,
+  getAdminSession,
+  clearAdminSession,
+  ADMIN_SESSION_UPDATED_EVENT,
+  type AdminSession,
+} from "../lib/auth";
 
 /* ----------------------------------------------------------------------
  * Icon set — outline monokrom, pakai stroke="currentColor" supaya warnanya
@@ -242,7 +248,6 @@ const menuPengaturan = [
 const profileMenu = [
   { to: "/admin/profil", label: "Profil", icon: IconUser },
   { to: "/admin/portal", label: "Portal", icon: IconBuilding },
-  { to: "/display", label: "Display", icon: IconMonitor },
 ];
 
 function formatWaktuRelatif(waktu: number): string {
@@ -260,9 +265,38 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [session, setSession] = useState<AdminSession | null>(() => getAdminSession());
+  const [fotoProfil, setFotoProfil] = useState<string | null>(null);
+  const [profileLoadError, setProfileLoadError] = useState(false);
   const { aktivitasLog, refetchAdminData } = useQueue();
   const isPetugas = session?.user.peran === "Petugas";
   const isSuperAdmin = session?.user.peran === "Super Admin";
+
+  useEffect(() => {
+    let active = true;
+    const loadProfilePhoto = async () => {
+      try {
+        const profile = await ambilProfilAdmin();
+        if (!active) return;
+        setFotoProfil(profile.fotoProfil);
+        setProfileLoadError(false);
+      } catch (error) {
+        if (!active) return;
+        console.error("Foto profil gagal dimuat:", error);
+        setFotoProfil(null);
+        setProfileLoadError(true);
+      }
+    };
+    const syncSession = () => {
+      setSession(getAdminSession());
+      void loadProfilePhoto();
+    };
+    void loadProfilePhoto();
+    window.addEventListener(ADMIN_SESSION_UPDATED_EVENT, syncSession);
+    return () => {
+      active = false;
+      window.removeEventListener(ADMIN_SESSION_UPDATED_EVENT, syncSession);
+    };
+  }, []);
 
   // Dropdown "Layanan Loket" di sidebar — otomatis terbuka kalau sedang
   // berada di salah satu halamannya (/admin/loket atau /admin/loket/tambah),
@@ -330,15 +364,19 @@ export default function AdminLayout() {
   }
 
   if (isPetugas) {
-    if (!session.user.loketId) {
+    if (!session.user.loketId && location.pathname !== "/admin/profil") {
       return (
         <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-center">
           <p className="max-w-md text-gray-700">Akun petugas belum ditugaskan ke loket. Hubungi Super Admin.</p>
         </div>
       );
     }
-    const loketTugasPath = `/admin/loket/${encodeURIComponent(session.user.loketId)}`;
-    if (location.pathname !== loketTugasPath) return <Navigate to={loketTugasPath} replace />;
+    const loketTugasPath = session.user.loketId
+      ? `/admin/loket/${encodeURIComponent(session.user.loketId)}`
+      : null;
+    if (location.pathname !== "/admin/profil" && loketTugasPath && location.pathname !== loketTugasPath) {
+      return <Navigate to={loketTugasPath} replace />;
+    }
   }
 
   if (
@@ -349,7 +387,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Overlay gelap di belakang sidebar — hanya muncul di mobile/tablet
           saat drawer terbuka, klik di luar sidebar akan menutupnya. */}
       {sidebarOpen && (
@@ -362,12 +400,12 @@ export default function AdminLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col justify-between bg-blue-900 text-white shadow-sm transition-all duration-200 ease-in-out
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col bg-blue-900 text-white shadow-sm transition-all duration-200 ease-in-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           lg:static lg:z-auto lg:translate-x-0
           ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
-        <div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Logo — klik untuk buka Portal */}
           <div className="flex items-center justify-between px-3 py-4">
             <Link
@@ -523,13 +561,11 @@ export default function AdminLayout() {
             ))}
           </nav>
         </div>
-
-        {/* Logout — selalu di paling bawah sidebar */}
-        <div className="border-t border-blue-800 p-3">
+        <div className="h-16 shrink-0 border-t border-blue-800 px-3">
           <button
             type="button"
             onClick={handleLogout}
-            className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-300 transition hover:bg-blue-800 hover:text-red-200 ${
+            className={`flex h-full w-full items-center gap-3 rounded-xl px-4 text-sm font-medium text-red-300 transition hover:bg-blue-800 hover:text-red-200 ${
               collapsed ? "justify-center px-3" : ""
             }`}
             title={collapsed ? "Logout" : undefined}
@@ -541,7 +577,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Area konten */}
-      <div className="flex min-h-screen flex-1 flex-col bg-gray-50">
+      <div className="flex h-screen min-w-0 flex-1 flex-col bg-gray-50">
         <header className="flex items-center justify-between border-b-4 border-blue-700 bg-white px-4 py-3 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             {/* Tombol hamburger — dipakai di SEMUA ukuran layar: di mobile
@@ -633,8 +669,15 @@ export default function AdminLayout() {
                   </p>
                   <p className="text-xs text-gray-500">{session.user.peran}</p>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white">
-                  <IconUsers className="h-5 w-5" />
+                <div
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-blue-600 text-white"
+                  title={profileLoadError ? "Foto profil gagal dimuat" : "Foto profil"}
+                >
+                  {fotoProfil ? (
+                    <img src={fotoProfil} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <IconUsers className="h-5 w-5" />
+                  )}
                 </div>
                 <IconChevronDown className="h-4 w-4 text-gray-500" />
               </button>
@@ -654,6 +697,18 @@ export default function AdminLayout() {
                         {item.label}
                       </Link>
                     ))}
+                    {(isSuperAdmin || session.user.peran === "Admin") && (
+                      <Link
+                        to="/display"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <IconMonitor className="h-4 w-4 text-gray-500" />
+                        Display
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -669,9 +724,14 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-8 sm:py-8">
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8">
           <Outlet />
         </main>
+        <footer className="z-20 flex h-16 shrink-0 items-center border-t border-gray-200 bg-white px-4 shadow-[0_-2px_8px_rgba(15,23,42,0.04)] sm:px-8">
+          <p className="text-xs text-gray-500 sm:text-sm">
+            © {new Date().getFullYear()} ADI OKE · Kantor Camat Kuta Selatan
+          </p>
+        </footer>
       </div>
     </div>
   );

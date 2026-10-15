@@ -57,10 +57,22 @@ export interface SurveiSubmission {
   id: string;
   /** Opsional — kalau warga tidak isi, tampil "Anonim" di dashboard admin */
   nama?: string;
-  /** key = id pertanyaan (1-5), value = rating 1-5 bintang */
+  jenisLayanan?: string;
+  /** key = id unsur survei (1-9), value = rating skala 1-4 */
   ratings: Record<number, number>;
   saran?: string;
   timestamp: number;
+}
+
+export interface SubmitSurveiInput {
+  nama?: string;
+  usia: number;
+  pekerjaan: string;
+  pendidikan: string;
+  jenisKelamin: "Laki-laki" | "Perempuan";
+  jenisLayanan: string;
+  ratings: Record<number, number>;
+  saran?: string;
 }
 
 export interface JamOperasionalHari {
@@ -108,6 +120,8 @@ export interface QueueContextType {
   loketError: string | null;
   /** Muat ulang riwayat antrian + aktivitas + rekap harian dari server — panggil ini setelah login berhasil, atau kapan saja perlu sinkron ulang */
   refetchAdminData: () => void;
+  /** Muat ulang status antrean untuk layar Display. */
+  refetchLayanan: () => void;
   /** Setiap kali warga ambil tiket, dicatat di sini — dasar grafik & riwayat harian/mingguan/bulanan (data LIVE, sebelum pernah direset) */
   riwayatAntrian: AntrianEvent[];
   /** Arsip harian per loket dari tabel rekap_harian — TETAP ADA meski riwayatAntrian
@@ -158,7 +172,7 @@ export interface QueueContextType {
   hapusAkun: (id: string) => void;
 
   /** Warga mengirim jawaban Survei Kepuasan Masyarakat (POST /api/survei, publik) */
-  submitSurvei: (ratings: Record<number, number>, saran?: string, nama?: string) => Promise<void>;
+  submitSurvei: (input: SubmitSurveiInput) => Promise<void>;
   /** Admin menghapus satu respons survei dari daftar (DELETE /api/survei/:id) */
   hapusSurvei: (id: string) => void;
 }

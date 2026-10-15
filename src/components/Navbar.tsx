@@ -70,13 +70,17 @@ export default function Navbar() {
                   >
                     Dashboard
                   </Link>
-                  <Link
-                    to="/display"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    Display
-                  </Link>
+                  {(session.user.peran === "Admin" || session.user.peran === "Super Admin") && (
+                    <Link
+                      to="/display"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowProfileMenu(false)}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Display
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={handleLogout}

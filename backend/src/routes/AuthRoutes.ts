@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, me } from "../controllers/AuthController.js";
+import { changePassword, getProfile, login, me, updateProfile } from "../controllers/AuthController.js";
 import { requireAuth } from "../middleware/AuthMiddleware.js";
 
 const router = Router();
@@ -9,5 +9,8 @@ router.post("/login", login);
 
 // GET /api/auth/me — perlu token, dipakai frontend cek sesi saat refresh halaman
 router.get("/me", requireAuth, me);
+router.get("/profile", requireAuth, getProfile);
+router.patch("/profile", requireAuth, updateProfile);
+router.post("/change-password", requireAuth, changePassword);
 
 export default router;  

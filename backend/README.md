@@ -31,13 +31,38 @@ satu kali sebelum menjalankan backend versi ini:
 mysql -u root -p antrean_adioke < src/database/migrations/20261002_add_users_loket_id.sql
 ```
 
+Untuk membuat tabel survei dan rating jika belum tersedia, jalankan:
+
+```bash
+mysql -u root -p antrean_adioke < src/database/migrations/20261013_create_survei_tables.sql
+```
+
+Perintah ini menggunakan `CREATE TABLE IF NOT EXISTS`, sehingga tidak menghapus
+atau menimpa tabel maupun data yang sudah ada. Jika tabel `survei` sudah ada
+tetapi kolom profil SKM belum tersedia, jalankan migrasi profil di bawah ini
+satu kali saja. Lewati migrasi tersebut jika kolomnya sudah ada.
+
+Untuk database yang sudah berisi tabel `survei`, tambahkan kolom profil
+responden SKM sebelum backend survei versi baru digunakan:
+
+```bash
+mysql -u root -p antrean_adioke < src/database/migrations/20261009_add_skm_profile_fields.sql
+```
+
+Migrasi ini hanya menambah kolom `usia`, `pekerjaan`, `pendidikan`,
+`jenis_kelamin`, dan `jenis_layanan` ke tabel `survei`. Kolom baru dibuat
+`NULL` agar respons survei lama tetap valid; formulir SKM sekarang mengisi
+kolom-kolom tersebut saat respons baru dikirim.
+
+Setiap respons menyimpan sembilan rating (nilai 1-4) ke tabel
+`survei_rating`, dengan `pertanyaan_id` 1-9. Respons baru baru akan masuk ke
+database setelah kedua tabel tersedia dan migrasi kolom profil selesai.
+
 Atau kalau lebih nyaman pakai HeidiSQL/phpMyAdmin bawaan Laragon, tinggal buka
 lalu jalankan isi `schema.sql`, lanjut `seed.sql`.
 
-Ini sudah saya **uji jalankan langsung** di MySQL sungguhan (bukan cuma ditulis
-manual) — 9 tabel + 1 view berhasil dibuat, seed 6 loket + 3 kategori + jam
-operasional masuk dengan benar, dan constraint rating survei (harus 1-5) sudah
-dicoba tervalidasi.
+Skema rating membatasi nilai pada rentang 1-5 untuk kompatibilitas dengan
+respons lama; endpoint SKM yang sekarang hanya menerima nilai 1-4.
 
 ## 4. Struktur tabel
 

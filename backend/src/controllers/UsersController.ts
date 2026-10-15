@@ -134,6 +134,29 @@ export async function updateUser(req: Request, res: Response) {
   res.json({ success: true, message: "Akun berhasil diperbarui." });
 }
 
+export async function resetAccountPassword(req: Request, res: Response) {
+  const password = (req.body as { password?: unknown }).password;
+  if (typeof password !== "string" || password.length < 8) {
+    return res.status(400).json({ success: false, message: "Kata sandi minimal 8 karakter." });
+  }
+
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT id, supabase_uid FROM users WHERE id = ? LIMIT 1",
+    [req.params.id]
+  );
+  const user = rows[0];
+  if (!user) return res.status(404).json({ success: false, message: "Akun tidak ditemukan." });
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(user.supabase_uid, {
+    password,
+  });
+  if (error) {
+    return res.status(400).json({ success: false, message: `Password gagal diperbarui: ${error.message}` });
+  }
+
+  res.json({ success: true, message: "Password akun berhasil diperbarui." });
+}
+
 export async function deleteUser(req: Request, res: Response) {
   const [rows] = await pool.query<UserRow[]>("SELECT * FROM users WHERE id = ? LIMIT 1", [req.params.id]);
   const user = rows[0];

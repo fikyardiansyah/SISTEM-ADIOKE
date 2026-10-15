@@ -43,6 +43,11 @@ export interface AntrianRow extends RowDataPacket {
 export interface SurveiRow extends RowDataPacket {
   id: string;
   nama: string | null;
+  usia: number | null;
+  pekerjaan: string | null;
+  pendidikan: string | null;
+  jenis_kelamin: "Laki-laki" | "Perempuan" | null;
+  jenis_layanan: string | null;
   saran: string | null;
   created_at: string;
 }
@@ -63,6 +68,9 @@ export interface UserRow extends RowDataPacket {
   nama: string;
   email: string;
   username: string;
+  nip: string | null;
+  nomor_telepon: string | null;
+  foto_profil: string | null;
   peran: PeranAkun;
   loket_id: string | null;
   status: StatusAkun;
