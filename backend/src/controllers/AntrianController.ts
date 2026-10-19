@@ -173,9 +173,9 @@ export async function resetSemuaAntrian(req: Request, res: Response) {
       SELECT
         DATE(waktu_ambil)        AS tanggal,
         loket_id,
-        COUNT(*)                 AS total,
-        SUM(status = 'dilayani') AS dilayani,
-        SUM(status = 'menunggu') AS menunggu
+        COUNT(*)                 AS jumlah_antrian,
+        SUM(status = 'dilayani') AS jumlah_dilayani,
+        SUM(status = 'menunggu') AS jumlah_menunggu
       FROM antrian
       GROUP BY DATE(waktu_ambil), loket_id
       ON DUPLICATE KEY UPDATE
