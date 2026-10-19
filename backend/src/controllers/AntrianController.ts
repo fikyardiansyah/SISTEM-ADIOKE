@@ -171,17 +171,17 @@ export async function resetSemuaAntrian(req: Request, res: Response) {
     await conn.query(`
       INSERT INTO rekap_harian (tanggal, loket_id, total, dilayani, menunggu)
       SELECT
-        DATE(waktu_ambil)        AS tanggal,
-        loket_id,
+        DATE(antrian.waktu_ambil) AS tanggal,
+        antrian.loket_id,
         COUNT(*)                 AS jumlah_antrian,
-        SUM(status = 'dilayani') AS jumlah_dilayani,
-        SUM(status = 'menunggu') AS jumlah_menunggu
+        SUM(antrian.status = 'dilayani') AS jumlah_dilayani,
+        SUM(antrian.status = 'menunggu') AS jumlah_menunggu
       FROM antrian
-      GROUP BY DATE(waktu_ambil), loket_id
+      GROUP BY DATE(antrian.waktu_ambil), antrian.loket_id
       ON DUPLICATE KEY UPDATE
-        total    = total    + VALUES(total),
-        dilayani = dilayani + VALUES(dilayani),
-        menunggu = menunggu + VALUES(menunggu)
+        total    = rekap_harian.total    + VALUES(total),
+        dilayani = rekap_harian.dilayani + VALUES(dilayani),
+        menunggu = rekap_harian.menunggu + VALUES(menunggu)
     `);
 
     await conn.query("DELETE FROM antrian");
